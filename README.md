@@ -13,9 +13,9 @@ as a function of time from multiple phased haplotypes. When only two haplotypes 
 
 To build and run MSMC, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system.
 
-To build the program, simply run `make` in thehwere msmc resides. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
+To build the program, simply run `make` in the directory in which your copy of the source code is located. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
 
-A precompiled version will be made available for Mac OS X and for Linux very soon.
+A precompiled version will be made available for Mac OS X and for Linux. Please check later.
 
 # Usage for population size estimates
 ## Input files
