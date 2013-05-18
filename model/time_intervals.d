@@ -16,13 +16,14 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.time_intervals;
 import std.exception;
 import std.stdio;
 import std.conv;
 import std.math;
 import std.algorithm;
-import triple_index_marginal;
+import model.triple_index_marginal;
 
 class TimeIntervals {
   const double[] boundaries;
@@ -234,7 +235,7 @@ unittest {
 
 unittest {
   writeln("test timeIntervals.meanTime");
-  import coalescence_rate;
+  import model.coalescence_rate;
   auto meanTimesTh = [0.02053010050230513,0.10097875411723184,0.2850866082677072,0.8012622730318943];
   auto subpop_labels = [0UL, 0, 1, 1];
   auto lambda_subpop_rates = [1, 0.1, 1, 2, 0.5, 4, 2, 1.0, 4, 1., 2, 1];

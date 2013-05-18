@@ -16,7 +16,8 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.triple_index;
 unittest {
   auto sI = new TripleIndex(4, 4);
   assert(sI.getIndexFromTriple(Triple(0, 0, 1)) == 0);

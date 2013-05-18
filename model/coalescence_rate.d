@@ -16,11 +16,12 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.coalescence_rate;
 import std.stdio;
 import std.exception;
-import triple_index;
-import triple_index_marginal;
+import model.triple_index;
+import model.triple_index_marginal;
 
 class PiecewiseConstantCoalescenceRate {
   const double[] lambdaVec;

@@ -32,16 +32,16 @@ import std.regex;
 import std.exception;
 import std.c.stdlib;
 import core.memory;
-import msmc_hmm;
-import propagation_core_fastImpl;
+import model.msmc_hmm;
+import model.propagation_core_fastImpl;
+import model.time_intervals;
+import model.triple_index_marginal;
+import model.data;
+import model.msmc_model;
 import powell;
 import utils;
 import msmc_utils;
 import baumwelch;
-import time_intervals;
-import triple_index_marginal;
-import data;
-import msmc_model;
 
 
 

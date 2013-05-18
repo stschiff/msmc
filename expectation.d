@@ -32,15 +32,15 @@ import std.regex;
 import std.exception;
 import std.c.stdlib;
 import core.memory;
-import msmc_hmm;
+import model.msmc_hmm;
+import model.msmc_model;
+import model.triple_index_marginal;
+import model.time_intervals;
+import model.transition_rate;
+import model.data;
 import utils;
 import msmc_utils;
-import msmc_model;
-import triple_index_marginal;
 import expectation_step;
-import time_intervals;
-import transition_rate;
-import data;
 
 class ExpectationApplication {
   

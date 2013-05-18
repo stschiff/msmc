@@ -17,6 +17,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+module model.msmc_hmm;
 import std.stdio;
 import std.math;
 import std.string;
@@ -26,11 +27,11 @@ import std.concurrency;
 import std.typecons;
 import std.random;
 import std.exception;
-import data;
-import gsl_matrix_vector;
-import propagation_core;
-import stateVec;
-import stateVecAllocator;
+import model.data;
+import model.gsl_matrix_vector;
+import model.propagation_core;
+import model.stateVec;
+import model.stateVecAllocator;
 
 SegSite_t[] chop_segsites(in SegSite_t[] segsites, size_t maxDistance) {
   SegSite_t[] ret;
@@ -308,9 +309,9 @@ class MSMC_hmm {
 
 unittest {
   writeln("testing MSMC_hmm");
-  import propagation_core_naiveImpl;
-  import propagation_core_fastImpl;
-  import msmc_model;
+  import model.propagation_core_naiveImpl;
+  import model.propagation_core_fastImpl;
+  import model.msmc_model;
   
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;

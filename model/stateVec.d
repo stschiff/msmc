@@ -16,11 +16,12 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.stateVec;
 import std.conv;
 import std.algorithm;
-import gsl_matrix_vector;
-import stateVecAllocator;
+import model.gsl_matrix_vector;
+import model.stateVecAllocator;
 
 class State_t {
   double[] vec, vecMarginal, vecMarginalEmission;

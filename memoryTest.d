@@ -18,11 +18,11 @@
  */
  
 import std.stdio;
-import propagation_core_fastImpl;
-import msmc_model;
-import data;
-import msmc_hmm;
-import stateVecAllocator;
+import model.propagation_core_fastImpl;
+import model.msmc_model;
+import model.data;
+import model.msmc_hmm;
+import model.stateVecAllocator;
 
 void main() {
   

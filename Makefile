@@ -6,7 +6,7 @@ model/propagation_core_fastImpl.d maximization_step.d expectation_step.d baumwel
 ../Utils/utils.d msmc_utils.d amoeba.d expectation.d maximization.d stats.d \
 model/stateVec.d model/stateVecAllocator.d branchlength.d decode.d print.d
 
-test_src = test_runner.d model/emission_rate.d model/transition_rate.d \
+unittest_src = unittest.d model/emission_rate.d model/transition_rate.d \
 model/gsl_matrix_vector.d model/data.d model/time_intervals.d model/msmc_hmm.d model/propagation_core_naiveImpl.d \
 model/propagation_core.d model/rate_integrator.d model/coalescence_rate.d \
 model/triple_index_marginal.d msmc_utils.d model/triple_index.d model/msmc_model.d powell.d brent.d \
@@ -20,11 +20,11 @@ model/triple_index_marginal.d msmc_utils.d model/triple_index.d model/msmc_model
 model/propagation_core_fastImpl.d maximization_step.d expectation_step.d ../Utils/utils.d amoeba.d \
 model/stateVec.d memoryTest.d model/stateVecAllocator.d
 
-all : check build/msmc
+all : unittest build/msmc
 
-check :
-	dmd -unittest ${test_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/test
-	build/test
+unittest :
+	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
+	build/unittest
 
 build/msmc : ${msmc_src}
 	dmd ${msmc_src} -O -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/msmc

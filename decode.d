@@ -22,11 +22,11 @@ import std.getopt;
 import std.exception;
 import std.c.stdlib;
 import std.algorithm;
-import msmc_hmm;
-import data;
-import time_intervals;
-import msmc_model;
-import propagation_core_fastImpl;
+import model.msmc_hmm;
+import model.data;
+import model.time_intervals;
+import model.msmc_model;
+import model.propagation_core_fastImpl;
 
 double mutationRate, recombinationRate;
 size_t nrTimeSegments=40, nrTtotSegments=40, stride=1000;

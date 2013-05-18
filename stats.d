@@ -26,8 +26,8 @@ import std.algorithm;
 import std.c.stdlib;
 import std.exception;
 import utils;
-import data;
-import time_intervals;
+import model.data;
+import model.time_intervals;
 
 
 class StatsApplication {

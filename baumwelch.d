@@ -24,7 +24,7 @@ import std.stdio;
 import std.file;
 import utils;
 import msmc_utils;
-import msmc_model;
+import model.msmc_model;
 import expectation_step;
 import maximization_step;
 

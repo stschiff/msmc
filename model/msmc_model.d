@@ -17,18 +17,19 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+module model.msmc_model;
 import std.exception;
 import std.json;
 import std.conv;
 import std.file;
 import std.stdio;
 import std.string;
-import triple_index_marginal;
+import model.triple_index_marginal;
+import model.time_intervals;
+import model.emission_rate;
+import model.transition_rate;
+import model.coalescence_rate;
 import utils;
-import time_intervals;
-import emission_rate;
-import transition_rate;
-import coalescence_rate;
 
 class MSMCmodel {
   const EmissionRate emissionRate;

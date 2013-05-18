@@ -16,12 +16,13 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
-import time_intervals;
-import coalescence_rate;
-import triple_index_marginal;
+
+module model.rate_integrator;
 import std.math;
 import std.stdio;
+import model.time_intervals;
+import model.coalescence_rate;
+import model.triple_index_marginal;
 
 class CoalescenceRateIntegrator {
   const TimeIntervals timeIntervals;

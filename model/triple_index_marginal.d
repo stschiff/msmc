@@ -17,12 +17,13 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+module model.triple_index_marginal;
 import std.algorithm;
 import std.range;
 import std.conv;
 import std.stdio;
 import std.exception;
-import triple_index;
+import model.triple_index;
 
 unittest {
   writeln("test MarginalIndex.getMarginalIndex");

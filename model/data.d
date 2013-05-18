@@ -16,7 +16,8 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.data; 
 import std.stdio;
 import std.string;
 import std.conv;
@@ -25,7 +26,7 @@ import std.math;
 import std.c.stdlib;
 import std.regex : match, regex, ctRegex;
 import std.exception;
-import time_intervals;
+import model.time_intervals;
 
 class SegSite_t {
   size_t pos; // rightMost position in the given segment

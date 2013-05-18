@@ -17,18 +17,18 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-// module msmc.propagation_core_naiveImpl;
+module model.propagation_core_naiveImpl;
 import std.stdio;
 import std.algorithm;
 import std.conv;
 import std.string;
 import std.exception;
-import data;
-import gsl_matrix_vector;
-import propagation_core;
-import msmc_model;
-import stateVec;
-import stateVecAllocator;
+import model.data;
+import model.gsl_matrix_vector;
+import model.propagation_core;
+import model.msmc_model;
+import model.stateVec;
+import model.stateVecAllocator;
 
 class PropagationCoreNaive : PropagationCore {
   

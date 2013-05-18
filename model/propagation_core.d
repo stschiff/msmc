@@ -17,11 +17,12 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+module model.propagation_core;
 import std.conv;
-import data;
-import stateVec;
-import stateVecAllocator;
-import msmc_model;
+import model.data;
+import model.stateVec;
+import model.stateVecAllocator;
+import model.msmc_model;
 
 interface PropagationCore {
 

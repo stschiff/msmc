@@ -22,9 +22,9 @@ import std.stdio;
 import std.random;
 import std.exception;
 import std.algorithm;
-import msmc_model;
+import model.msmc_model;
+import model.triple_index;
 import powell;
-import triple_index;
 
 class MaximizationStep {
   

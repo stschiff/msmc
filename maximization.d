@@ -31,12 +31,12 @@ import std.typecons;
 import std.exception;
 import std.c.stdlib;
 import core.memory;
-import msmc_hmm;
+import model.msmc_hmm;
+import model.msmc_model;
+import model.triple_index_marginal;
+import maximization_step;
 import utils;
 import msmc_utils;
-import msmc_model;
-import triple_index_marginal;
-import maximization_step;
 
 class MaximizationApplication {
   

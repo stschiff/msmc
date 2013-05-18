@@ -16,15 +16,16 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.transition_rate;
 import std.math;
 import std.conv;
 import std.stdio;
 import std.exception;
-import time_intervals;
-import triple_index_marginal;
-import coalescence_rate;
-import rate_integrator;
+import model.time_intervals;
+import model.triple_index_marginal;
+import model.coalescence_rate;
+import model.rate_integrator;
 
 class TransitionRate {
   double rho;

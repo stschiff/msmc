@@ -16,20 +16,21 @@
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+module model.propagation_core_fastImpl;
 import std.stdio;
 import std.algorithm;
 import std.string;
 import std.conv;
 import std.math;
 import std.exception;
-import msmc_hmm;
-import data;
-import gsl_matrix_vector;
-import propagation_core;
-import msmc_model;
-import stateVec;
-import stateVecAllocator;
+import model.msmc_hmm;
+import model.data;
+import model.gsl_matrix_vector;
+import model.propagation_core;
+import model.msmc_model;
+import model.stateVec;
+import model.stateVecAllocator;
 
 double gsl_matrix_get_checked(const gsl_matrix* m, size_t i, size_t j) {
   assert(i < (*m).size1);
@@ -415,7 +416,7 @@ class PropagationCoreFast : PropagationCore {
 unittest {
   writeln("testing propagationCoreFast and propagationCoreNaive propagators");
 
-  import propagation_core_naiveImpl;
+  import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
   auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
@@ -456,7 +457,7 @@ unittest {
 
 unittest {
   writeln("testing propagationCoreFast and propagationCoreNaive propagateForward ");
-  import propagation_core_naiveImpl;
+  import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
   auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
@@ -503,7 +504,7 @@ unittest {
 
 unittest {
   writeln("testing propagationCoreFast and propagationCoreNaive propagateBackward ");
-  import propagation_core_naiveImpl;
+  import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
   auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);

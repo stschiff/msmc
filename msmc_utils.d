@@ -26,9 +26,9 @@ import std.regex;
 import std.json;
 import std.exception;
 import std.array;
-import msmc_model;
+import model.msmc_model;
+import model.time_intervals;
 import utils;
-import time_intervals;
 
 
 size_t[] parseCommaSeparatedArray(string arrayString) {

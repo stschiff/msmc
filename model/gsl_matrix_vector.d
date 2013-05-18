@@ -17,6 +17,7 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+module model.gsl_matrix_vector;
 import std.stdio;
 import std.exception;
 import std.conv;

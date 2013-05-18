@@ -24,11 +24,11 @@ import std.string;
 import std.algorithm;
 import std.exception;
 import core.memory;
-import propagation_core;
-import propagation_core_fastImpl;
-import propagation_core_naiveImpl;
-import msmc_model;
-import msmc_hmm;
+import model.propagation_core;
+import model.propagation_core_fastImpl;
+import model.propagation_core_naiveImpl;
+import model.msmc_model;
+import model.msmc_hmm;
 
 class ExpectationStep {
   

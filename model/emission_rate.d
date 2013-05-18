@@ -17,11 +17,12 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
+module model.emission_rate;
 import std.stdio;
 import std.math;
 import std.exception;
 import std.conv;
-import triple_index;
+import model.triple_index;
 
 class EmissionRate {
   size_t nrHaplotypes;
