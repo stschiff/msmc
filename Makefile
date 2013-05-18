@@ -19,14 +19,16 @@ unittest :
 	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
 	build/unittest
 
+build/msmc : ${msmc_src}
+	dmd ${msmc_src} -O -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/msmc
+
 testcoverage :
 	mkdir -p code_coverage
 	dmd -unittest -cov ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
 	build/unittest
 	mv *.lst code_coverage/
 
-build/msmc : ${msmc_src}
-	dmd ${msmc_src} -O -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/msmc
-
 clean :
 	rm build/*
+
+.PHONY : all unittest testcoverage clean

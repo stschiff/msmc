@@ -23,6 +23,8 @@ import std.stdio;
 import std.string;
 import std.algorithm;
 import std.exception;
+import std.conv;
+import std.math;
 import core.memory;
 import model.propagation_core;
 import model.propagation_core_fastImpl;
@@ -157,18 +159,30 @@ unittest {
   auto lambdaVec = new double[12];
   lambdaVec[] = 1.0;
   auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4);
-  auto fileNames = ["model/hmm_testData_tMRCA.txt", "model/hmm_testData_tMRCA.txt"];
+  auto fileNames = ["model/hmm_testData_tMRCA.txt", "model/hmm_testData_tMRCA.txt", "model/hmm_testData_tMRCA.txt"];
   auto hmmStrideWidth = 100U;
   
-  auto expectationStep = new ExpectationStep(1U, fileNames, msmc, hmmStrideWidth, 100U);
+  auto expectationStep = new ExpectationStep(1U, fileNames, msmc, hmmStrideWidth, 100U, true);
   expectationStep.run();
   auto resultSingleThreaded = expectationStep.getResult();
   expectationStep = new ExpectationStep(2U, fileNames, msmc, hmmStrideWidth, 100U);
   expectationStep.run();
   auto resultMultiThreaded = expectationStep.getResult();
+  auto logL = expectationStep.getLogLikelihood();
    
-  assert(resultSingleThreaded == resultMultiThreaded);
-  foreach(row; resultSingleThreaded)
-    foreach(val; row)
+  auto sumSingleThreaded = 0.0;
+  auto sumMultiThreaded = 0.0;
+  foreach(row; resultSingleThreaded) {
+    foreach(val; row) {
       assert(val >= 0.0);
+      sumSingleThreaded += val;
+    }
+  }
+  foreach(row; resultMultiThreaded) {
+    foreach(val; row) {
+      assert(val >= 0.0);
+      sumMultiThreaded += val;
+    }
+  }
+  assert(approxEqual(sumSingleThreaded, sumMultiThreaded, 1.0e-8, 0.0), text([sumSingleThreaded, sumMultiThreaded]));
 }
