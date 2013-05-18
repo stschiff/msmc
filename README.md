@@ -7,7 +7,11 @@ In short, msmc can infer
 * the scaled population size of a single population
 * gene flow across multiple populations
 
-as a function of time from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
+as a function of time from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](http://github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
+
+# Compilation
+
+The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html). MSMC links against the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/), which must be installed. To build the program, simply run `make` in thehwere msmc resides.
 
 # Usage for population size estimates
 ## Input files
