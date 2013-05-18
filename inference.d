@@ -138,6 +138,8 @@ void parseCommandLine(string[] args) {
       "fixedRecombination", &fixedRecombination
   );
   enforce(!isNaN(mutationRate), "need to set mutation rate");
+  if(isNaN(recombinationRate))
+    recombinationRate = mutationRate / 4.0;
   enforce(args.length > 1, "need at least one input file");
   enforce(hmmStrideWidth > 0, "hmmStrideWidth must be positive");
   inputFileNames = args[1..$];
@@ -153,7 +155,7 @@ void inferDefaultSubpopLabels() {
 void runMemory() {
   
   auto nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
-  auto msmc = MSMCmodel.withTrivialLambda(mutationRate, mutationRate / 4.0, subpopLabels, nrTimeSegments, nrTtotSegments);
+  auto msmc = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, nrTtotSegments);
   
   auto maxDistance = 1000;
   int bytesPerDouble = 8;
@@ -196,8 +198,6 @@ void runMemory() {
 
 void runBaumWelch() {
   auto nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
-  if(isNaN(recombinationRate))
-    recombinationRate = mutationRate / 4.0;
   auto msmc = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, nrTtotSegments);
   if(demographyFiles)
     msmc = MSMCmodel.overrideDemographies(msmc, demographyFiles);

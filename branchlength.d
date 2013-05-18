@@ -75,8 +75,11 @@ void readArguments(string[] args) {
       "recombinationRate|r", &recombinationRate,
       "nrTimeSegments|n", &nrTimeSegments
   );
+  enforce(!isNaN(mutationRate), "need to set mutation rate");
   inputFileName = args[1];
   nrHaplotypes = getNrHaplotypesFromFile(inputFileName);
+  if(isNaN(recombinationRate))
+    recombinationRate = mutationRate / 4.0;
   stderr.writeln("found ", nrHaplotypes, " Haplotypes in file");
 }
 
@@ -84,7 +87,7 @@ static void displayHelpMessageAndExit() {
   stderr.writeln("Usage: msmc branchlength [options] <datafile>
 -n, --nrTimeSegments=<int> : nr of time intervals [=40]
 -m, --mutationRate=<double> : scaled mutation rate to use
--r, --recombinationRate=<double> : scaled recombination rate to use");
+-r, --recombinationRate=<double> : scaled recombination rate to use [default mutationRate / 4]");
   exit(0);
 }
   

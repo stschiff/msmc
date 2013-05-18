@@ -31,6 +31,7 @@ what_t what;
 bool unscaled;
 bool years;
 double mu = 1.25e-8;
+size_t generationTime = 30;
 char delimiter = '\t';
 
 void printMain(string[] args) {
@@ -65,7 +66,7 @@ void printMain(string[] args) {
 }
 
 void readArgs(string[] args) {
-  getopt(args, "what|w", &what, "unscaled|s", &unscaled, "years|y", &years, "delimiter|d", &delimiter);
+  getopt(args, "what|w", &what, "unscaled|s", &unscaled, "years|y", &years, "delimiter|d", &delimiter, "mutationRate|m", &mu, "generationTime|g", &generationTime);
   enforce(args.length == 2, "need exactly one filename");
   json = parseJSON(readText(args[1]));
 }
@@ -75,6 +76,8 @@ void printHelpMessage() {
     Options:
     --what, -w <what>: one of [popSize, mutationRate, recombinationRate, lambda, crossLambda, likelihood]. Default [popSize]
     --unscaled, -s
+    --mutationRate, -m [ default 1.25e-8 ]
+    --generationTime, -g [ default 30 years ]
     --years, -y print time in years, not generations (only applied if --unscaled is set)
     --delimiter, -d");
 }
@@ -83,7 +86,7 @@ void runPopSize() {
   auto times = json["results"].array[$ - 1]["updatedParams"]["timeIntervals"].fromJSON!(double[])();
   auto lambdaVec = json["results"].array[$ - 1]["updatedParams"]["lambdaVec"].fromJSON!(double[])();
   enforce(lambdaVec.length == times.length, "cross-population run, use lambda instead");
-  times[0] = times[1] / 4.0;
+  // times[0] = times[1] / 4.0;
   foreach(i; 0 .. lambdaVec.length) {
     if(unscaled) {
       auto t = 2.0 * getN() * times[i];
@@ -122,7 +125,7 @@ void runLambda() {
     if(unscaled) {
       auto t = 2.0 * getN() * times[i];
       if(years)
-        t *= 30;
+        t *= generationTime;
       write(t);
     }
     else
