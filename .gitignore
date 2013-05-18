@@ -2,3 +2,4 @@
 TestData/
 build/
 tmp/
+test_coverage/

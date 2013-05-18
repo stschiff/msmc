@@ -40,7 +40,6 @@ import model.data;
 import model.msmc_model;
 import powell;
 import utils;
-import msmc_utils;
 import baumwelch;
 
 

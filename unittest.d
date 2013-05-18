@@ -34,7 +34,6 @@ import model.msmc_model;
 import model.propagation_core_fastImpl;
 import model.stateVec;
 import model.stateVecAllocator;
-import msmc_utils;
 import powell;
 import brent;
 import maximization_step;

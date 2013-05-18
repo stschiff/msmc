@@ -39,7 +39,6 @@ import model.time_intervals;
 import model.transition_rate;
 import model.data;
 import utils;
-import msmc_utils;
 import expectation_step;
 
 class ExpectationApplication {

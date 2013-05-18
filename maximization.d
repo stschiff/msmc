@@ -36,7 +36,6 @@ import model.msmc_model;
 import model.triple_index_marginal;
 import maximization_step;
 import utils;
-import msmc_utils;
 
 class MaximizationApplication {
   
