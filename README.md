@@ -40,7 +40,9 @@ The four columns are:
 3. the number of called homozygous sites since the last segregating site, including the given location
 4. the ordered and phased pattern of alleles at multiple haplotypes. Multiple observations can be given, separated by a comma to indicate ambiguous haplotype phasing. Unknown alleles are indicated by "?", e.g. for missing data, or for sites which cannot be phased.
 
-For the following, we need an estimate of the diversity for the input files. A standard estimator for θ(=4Nµ), along with several other statistics can be obtained with the command
+Input files can be generated from BAM files, VCF files and other sources relatively straight forward. The necessary scripts will be made available soon.
+
+For the following, we need an estimate of the diversity from the input files. A standard estimator for θ(=4Nµ), along with several other statistics can be obtained with the command
 
     msmc stats <file1> <file2> ...
 
@@ -49,7 +51,7 @@ This step is necessary if more than two haplotypes are analyzed. Local estimates
 
     msmc branchlength -m <mutation_rate> <input_file> > out_file
 
-which should be run for every input file. The scaled mutation rate. 2Nµ should be set to half the estimate obtained in the previous step for θ. The output files look like this:
+which must be run for every input file. The scaled mutation rate. 2Nµ should be set to half the estimate obtained in the previous step for θ. The output files look like this:
 
     1 58448 16 GAAA 0.0766465
     1 68306 15 CTTT 8.58025
@@ -65,7 +67,7 @@ which should be run for every input file. The scaled mutation rate. 2Nµ should 
 where the local estimate of the total branchlength is added to every segregating site as fifth column.
 
 ## Main inference
-We can now run the main program, `msmc inference`, on our annotated datafile (or in case of 2 haplotypes without the branchlength annotation). To run the program on a machine with 8 processor cores, the command line looks like this:
+We can now run the main program, `msmc inference`, on our annotated datafile (or in case of 2 haplotypes without the branchlength annotation). To run the program on a machine with 8 processor cores, the minimal command line looks like this:
 
     msmc inference -m <mutation_rate> -t 8 --fixedRecombination -o <out_file> <input_file1> <input_file2> ...
 
