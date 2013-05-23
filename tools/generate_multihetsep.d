@@ -25,9 +25,7 @@ size_t[2][size_t] offspring_pattern;
 string[] filenames;
 string ref_filename;
 FILE_TYPE[] types;
-char[][] consensusSequences;
 string chromosome;
-char[] ref_seq;
 string ref_chr;
 
 static this() {
@@ -63,7 +61,6 @@ static this() {
     'G' : ['G', 'G'],
     'T' : ['T', 'T']
   ];
-
 }
 
 void main(string[] args) {
@@ -127,34 +124,26 @@ Options only for type CG:
 }
 
 void run() {
+  char[] ref_seq;
+  char[][] consensusSequences;
   foreach(fileIndex; 0 .. filenames.length) {
     if(types[fileIndex] == FILE_TYPE.VCF)
       consensusSequences ~= readVCF(filenames[fileIndex]);
     else {
       if(ref_seq.length == 0) {
-        readReferenceSequence(ref_filename);
+        ref_seq = readFastaSequence(ref_filename, ref_chr);
       }
-      consensusSequences ~= readCG(filenames[fileIndex]);
+      consensusSequences ~= readCG(filenames[fileIndex], ref_seq);
     }
   }
-  auto maxLength = consensusSequences.map!"a.length"().minCount!"a>b"()[0];
-  foreach(c; consensusSequences) {
-    c.length = maxLength;
-  }
-  printOutput();
+  normalizeLengths(consensusSequences, 'N');
+  printOutput(consensusSequences);
 }
 
 char[][] readVCF(string filename) {
   char[][] ret;
   auto nrSamples = 0UL;
-  auto file = stdin;
-  if(filename != "-") {
-    stderr.writeln("reading file ", filename);
-    file = File(filename, "r");
-  }
-  else {
-    stderr.writeln("reading from stdin");
-  }
+  auto file = openFile(filename);
   auto cnt = 0;
   foreach(line; file.byLine().filter!(l => l.startsWith(chromosome))()) {
     auto fields = line.strip().split("\t");
@@ -166,13 +155,9 @@ char[][] readVCF(string filename) {
     if(cnt++ % 100000 == 0)
       stderr.writeln("scanning pos ", pos);
     auto i = pos - 1;
-    if(i >= ret[0].length) {
-      auto previousLength = ret[0].length;
-      foreach(j; 0 .. nrSamples) {
-        ret[j].length = i + 1;
-        ret[j][previousLength .. $] = 'N';
-      }
-    }
+    
+    fillLength(ret[0], i + 1, 'N');
+    
     if(fields[3].match(r"^[ACTGactg]$") && fields[4].match(r"^[ACTGactg\.]$")) {
       auto dp = fields[7].match(r"DP=(\d+)").captures[1].to!size_t();
       auto mq = fields[7].match(r"MQ=(\d+)").captures[1].to!int();
@@ -198,13 +183,40 @@ char[][] readVCF(string filename) {
   return ret;
 }
 
-char[] readCG(string filename) {
+File openFile(string filename) {
+  auto file = stdin;
+  if(filename != "-") {
+    stderr.writeln("reading file ", filename);
+    file = File(filename, "r");
+  }
+  else {
+    stderr.writeln("reading from stdin");
+  }
+  return file;
+}
+
+void fillLength(ref char[] seq, size_t newLength, char fill) {
+  if(newLength > seq.length) {
+    auto previousLength = seq.length;
+    seq.length = newLength;
+    seq[previousLength .. $] = fill;
+  }
+}
+
+unittest {
+  auto seq = "ACCT".dup;
+  fillLength(seq, 8UL, 'N');
+  assert(equal(seq, "ACCTNNNN"), text(seq));
+  fillLength(seq, 6UL, 'N');
+  assert(equal(seq, "ACCTNNNN"));
+}
+
+char[] readCG(string filename, char[] ref_seq) {
   enum zygosity_t {NO_CALL, HAP, HALF, HOM, HET_REF, HET_ALT}
   enum vartype_t {SNP, INS, DEL, SUB, REF, COMPLEX, NO_REF, PAR_CALLED_IN_X}
   enum varquality_t {VQLOW, VQHIGH}
   
-  stderr.writeln("reading file ", filename);
-  auto cg_file = File(filename, "r");
+  auto cg_file = openFile(filename);
   auto line_count = 0;
   auto seq = new char[ref_seq.length];
   seq[] = 'N';
@@ -252,7 +264,7 @@ char[] readCG(string filename) {
   return seq;
 }
 
-void readReferenceSequence(string filename) {
+char[] readFastaSequence(string filename, string ref_chr) {
   auto ref_file = File(filename, "r");
   auto tag = ">" ~ ref_chr ~ " ";
   char[] line;
@@ -262,6 +274,7 @@ void readReferenceSequence(string filename) {
   
   stderr.writeln("found fasta region ", strip(line));
   ref_file.readln(line);
+  char[] ref_seq;
   do {
     ref_seq ~= line.strip();
     ref_file.readln(line);
@@ -269,19 +282,35 @@ void readReferenceSequence(string filename) {
 
   auto L = ref_seq.length;
   stderr.writeln("read ", L, " nucleotides");
+  return ref_seq;
 }
 
-void printOutput() {
+void normalizeLengths(char[][] consensusSequences, char fill) {
+  auto maxLength = consensusSequences.map!"a.length"().minCount!"a>b"()[0];
+  foreach(ref c; consensusSequences) {
+    fillLength(c, maxLength, fill);
+  }
+}
+
+unittest {
+  auto seqs = ["ACCT", "ACCCTTT", "ACA"].map!"a.dup"().array();
+  char fill = 'N';
+  normalizeLengths(seqs, fill);
+  assert(equal(seqs[0], "ACCTNNN"), text(seqs[0]));
+  assert(equal(seqs[1], "ACCCTTT"));
+  assert(equal(seqs[2], "ACANNNN"));
+}
+
+void printOutput(char[][] consensusSequences) {
   auto nr_called_sites = 0;
-  auto nrHaplotypes = consensusSequences.length;
+  auto nrHaplotypes = 2 * consensusSequences.length;
   foreach(i; 0 .. consensusSequences[0].length) {
     if(i % 100000 == 0)
       stderr.writeln("position ", i);
-    if(!hasGap(i)) {
+    if(!hasGap(consensusSequences, i)) {
       nr_called_sites += 1;
-      if(hasSNP(i)) {
+      if(hasSNP(consensusSequences, i)) {
         auto allPhasings = getAllPhasings(consensusSequences.map!(c => c[i])().array());
-        auto nrHaplotypes = allPhasings[0].length;
         auto prunedPhasings = pruneInconsistentPhasings(allPhasings, offspring_pattern);
         if(prunedPhasings.length == 0)
           prunedPhasings = [iota(nrHaplotypes).map!"'?'"().array()];
@@ -293,7 +322,7 @@ void printOutput() {
   }
 }
 
-bool hasGap(size_t i) {
+bool hasGap(in char[][] consensusSequences, size_t i) {
   foreach(s; consensusSequences) {
     if(s[i] !in IUPAC_dna_rev)
       return true;
@@ -301,12 +330,24 @@ bool hasGap(size_t i) {
   return false;
 }
 
-bool hasSNP(size_t i) {
+unittest {
+  auto seqs = ["ACCC", "ANCC"].map!"a.dup"().array();
+  assert(hasGap(seqs, 1));
+  assert(!hasGap(seqs, 0));
+}
+
+bool hasSNP(in char[][] consensusSequences, size_t i) {
   foreach(s; consensusSequences) {
     if(!canFind("ACTG", s[i]) || s[i] != consensusSequences[0][i])
       return true;
   }
   return false;
+}
+
+unittest {
+  auto seqs = ["ACCR", "ANCC"].map!"a.dup"().array();
+  assert(!hasSNP(seqs, 0));
+  assert(hasSNP(seqs, 3));
 }
 
 char[][] getAllPhasings(in char[] genotypes) {
@@ -339,30 +380,64 @@ char[][] getAllPhasings(in char[] genotypes) {
 }
 
 unittest {
-  assert(getAllPhasings(['A']) == ["AA"]);
-  assert(getAllPhasings(['A', 'C']) == ["AACC"], text(getAllPhasings(['A', 'C'])));
-  assert(getAllPhasings(['R']) == ["AG", "GA"]);
-  assert(getAllPhasings(['R', 'A']) == ["AGAA", "GAAA"]);
-  assert(getAllPhasings(['R', 'R']) == ["AGAG", "AGGA", "GAAG", "GAGA"]);
+  assert(equal(getAllPhasings(['A']).joiner(","), "AA"));
+  assert(equal(getAllPhasings(['A', 'C']).joiner(","), "AACC"));
+  assert(equal(getAllPhasings(['R']).joiner(","), "AG,GA"));
+  assert(equal(getAllPhasings(['R', 'A']).joiner(","), "AGAA,GAAA"));
+  assert(equal(getAllPhasings(['R', 'R']).joiner(","), "AGAG,AGGA,GAAG,GAGA"));
 }
 
 char[][] pruneInconsistentPhasings(in char[][] allPhasings, size_t[2][size_t] offspring_pattern) {
-  size_t[] inconsistentIndices;
-  foreach(offspringIndex; offspring_pattern.keys()) {
-    foreach(i, alleles; allPhasings) {
-      if(!consistentPhasing(alleles, offspring_pattern[offspringIndex])) {
-        inconsistentIndices ~= i;
+  size_t[] consistentIndices;
+  foreach(i, alleles; allPhasings) {
+    auto consistent = true;
+    foreach(offspringIndex; offspring_pattern.keys()) {
+      if(!consistentPhasing(alleles, offspringIndex, offspring_pattern[offspringIndex])) {
+        consistent = false;
+        break;
       }
     }
+    if(consistent)
+      consistentIndices ~= i;
   }
   
-  auto consistentPhasings = iota(allPhasings.length)
-         .filter!(i => !canFind(inconsistentIndices, i))()
-         .map!(i => allPhasings[i])();
-  return consistentPhasings.map!(al => iota(al.length).filter!(i => i !in offspring_pattern)().array()).array();
+  return consistentIndices
+    .map!(i => allPhasings[i].dup)()
+    .map!(al => iota(al.length).filter!(i => i !in offspring_pattern)().map!(i => al[i]).array())
+    .array();
+}
+
+bool consistentPhasing(in char[] alleles, size_t offspring, size_t[2] parents) {
+  auto offspringAl1 = (offspring - 1) * 2;
+  auto offspringAl2 = (offspring - 1) * 2 + 1;
+  auto fatherIndex = (parents[0] - 1) * 2;
+  auto motherIndex = (parents[1] - 1) * 2;
+  return alleles[offspringAl1] == alleles[fatherIndex] && alleles[offspringAl2] == alleles[motherIndex];
 }
 
 unittest {
+  // parents hom, child het
+  assert(consistentPhasing("AACCAC", 3, [1, 2]));
+  assert(!consistentPhasing("AACCCA", 3, [1, 2]));
+  
+  // one parent het
+  assert(consistentPhasing("ACAAAA", 3, [1, 2]));
+  assert(!consistentPhasing("CAAAAA", 3, [1, 2]));
+  assert(consistentPhasing("AAACAA", 3, [1, 2]));
+  assert(!consistentPhasing("AACAAA", 3, [1, 2]));
+
+  // both parents het
+  assert(consistentPhasing("ACACAA", 3, [1, 2]));
+  assert(!consistentPhasing("ACCAAA", 3, [1, 2]));
+  assert(!consistentPhasing("CAACAA", 3, [1, 2]));
+  assert(!consistentPhasing("CACAAA", 3, [1, 2]));
+  
+  // all hets
+  assert(consistentPhasing("ACCAAC", 3, [1, 2]));
+  assert(consistentPhasing("CAACCA", 3, [1, 2]));
+  assert(!consistentPhasing("ACACAC", 3, [1, 2]));
+  assert(!consistentPhasing("CACAAC", 3, [1, 2]));
+  assert(!consistentPhasing("ACACCA", 3, [1, 2]));
+  assert(!consistentPhasing("CACACA", 3, [1, 2]));
   
 }
-    
