@@ -123,7 +123,7 @@ void run() {
         ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(i, 1.0);
       }
     }
-    newLines ~= lines[lineIndex] ~ text(" ", ttot);
+    newLines ~= lines[lineIndex] ~ text("\t", ttot);
   }
   foreach_reverse(line; newLines)
     writeln(line);

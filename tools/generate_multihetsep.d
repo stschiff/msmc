@@ -27,6 +27,7 @@ string ref_filename;
 FILE_TYPE[] types;
 string chromosome;
 string ref_chr;
+bool diploidOutput;
 
 static this() {
   IUPAC_dna = [
@@ -77,7 +78,7 @@ void main(string[] args) {
 }
 
 void readArgs(string[] args) {
-  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "offspring|o", toDelegate(&handleOffspringPattern), "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename);
+  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "offspring|o", toDelegate(&handleOffspringPattern), "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "diploidOutput|d", &diploidOutput);
   
   enforce(minDepth > 0 && maxDepth > minDepth, "maxDepth should be larger than minDepth");
   enforce(args.length > 1, "need at least one file");
@@ -111,6 +112,7 @@ General Options:
 -t, --types: comma-separated string of either VCF or CG, must be given for each file
 -c, --chromosome: chromosome label
 -o, --offspring: denote the index of any offspring samples including the two parents, e.g. 1(2,3);4(5,6) to denote two trios where the first and the fourth samples are the offspring of the parental haplotypes (2,3) and (5,6).
+-d, --diploidOutput: Output as diploid alleles, using IUPAC symbols for heterozygotes
 
 Options only for type VCF:
 -m, --minDepth [=5]
@@ -156,12 +158,19 @@ char[][] readVCF(string filename) {
       stderr.writeln("scanning pos ", pos);
     auto i = pos - 1;
     
-    fillLength(ret[0], i + 1, 'N');
+    foreach(j; 0 .. nrSamples)
+      fillLength(ret[j], i + 1, 'N');
     
     if(fields[3].match(r"^[ACTGactg]$") && fields[4].match(r"^[ACTGactg\.]$")) {
-      auto dp = fields[7].match(r"DP=(\d+)").captures[1].to!size_t();
-      auto mq = fields[7].match(r"MQ=(\d+)").captures[1].to!int();
-      auto fq = fields[7].match(r"FQ=([\d-]+)").captures[1].to!int();
+      auto dp_match = fields[7].match(r"DP=(\d+)");
+      auto mq_match = fields[7].match(r"MQ=(\d+)");
+      auto fq_match = fields[7].match(r"FQ=([\d-]+)");
+      if(!(dp_match && mq_match && fq_match)) // this bypasses a bug in samtools that causes a lack of fields in the INFO column.
+        continue;
+      auto dp = dp_match.captures[1].to!size_t();
+      auto mq = mq_match.captures[1].to!int();
+      auto fq = fq_match.captures[1].to!int();
+            
       if(dp >= minDepth && dp <= maxDepth && mq >= minMapQ && abs(fq) >= minConsQ) {
         if(fields[4] != ".") {
           foreach(j; 0 .. nrSamples) {
@@ -287,6 +296,7 @@ char[] readFastaSequence(string filename, string ref_chr) {
 
 void normalizeLengths(char[][] consensusSequences, char fill) {
   auto maxLength = consensusSequences.map!"a.length"().minCount!"a>b"()[0];
+  stderr.writeln("normalizing to length ", maxLength);
   foreach(ref c; consensusSequences) {
     fillLength(c, maxLength, fill);
   }
@@ -305,17 +315,27 @@ void printOutput(char[][] consensusSequences) {
   auto nr_called_sites = 0;
   auto nrHaplotypes = 2 * consensusSequences.length;
   foreach(i; 0 .. consensusSequences[0].length) {
-    if(i % 100000 == 0)
+    if(i % 1000000 == 0)
       stderr.writeln("position ", i);
     if(!hasGap(consensusSequences, i)) {
       nr_called_sites += 1;
       if(hasSNP(consensusSequences, i)) {
-        auto allPhasings = getAllPhasings(consensusSequences.map!(c => c[i])().array());
-        auto prunedPhasings = pruneInconsistentPhasings(allPhasings, offspring_pattern);
-        if(prunedPhasings.length == 0)
-          prunedPhasings = [iota(nrHaplotypes).map!"'?'"().array()];
-        auto alleleString = prunedPhasings.joiner(",").array();
-        writefln("%s %s %s %s", chromosome, i + 1, nr_called_sites, alleleString);
+        char[] alleleString;
+        if(diploidOutput) {
+          alleleString = consensusSequences.map!(c => c[i])().array();
+        }
+        else {
+          auto allPhasings = getAllPhasings(consensusSequences.map!(c => c[i])().array());
+          if(nrHaplotypes == 2)
+            alleleString = allPhasings[0];
+          else {
+            auto prunedPhasings = pruneInconsistentPhasings(allPhasings, offspring_pattern);
+            if(prunedPhasings.length == 0)
+              prunedPhasings = [iota(nrHaplotypes - offspring_pattern.length * 2).map!"'?'"().array()];
+            alleleString = prunedPhasings.joiner(",").array().to!(char[]);
+          }
+        }
+        writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
         nr_called_sites = 0;
       }
     }
@@ -403,8 +423,16 @@ char[][] pruneInconsistentPhasings(in char[][] allPhasings, size_t[2][size_t] of
   
   return consistentIndices
     .map!(i => allPhasings[i].dup)()
-    .map!(al => iota(al.length).filter!(i => i !in offspring_pattern)().map!(i => al[i]).array())
+    .map!(al => iota(al.length).filter!(i => (i/2 + 1) !in offspring_pattern)().map!(i => al[i]).array())
     .array();
+}
+
+unittest {
+  auto seqs = ["ACAAAC", "ACAACA", "CAAAAC", "CAAACA"].map!"a.dup"().array();
+  size_t[2][size_t] o;
+  o[3] = [1, 2];
+  auto pruned = pruneInconsistentPhasings(seqs, o);
+  assert(equal(pruned, ["CAAA"]), text(pruned));
 }
 
 bool consistentPhasing(in char[] alleles, size_t offspring, size_t[2] parents) {
