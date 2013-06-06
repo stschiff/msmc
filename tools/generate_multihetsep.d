@@ -28,6 +28,7 @@ FILE_TYPE[] types;
 string chromosome;
 string ref_chr;
 bool diploidOutput;
+string positions_filename;
 
 static this() {
   IUPAC_dna = [
@@ -47,7 +48,9 @@ static this() {
     ['A', 'A'] : 'A',
     ['C', 'C'] : 'C',
     ['G', 'G'] : 'G',
-    ['T', 'T'] : 'T'
+    ['T', 'T'] : 'T',
+      
+    ['N', 'N'] : 'N'
   ];
 
   IUPAC_dna_rev = [
@@ -60,7 +63,8 @@ static this() {
     'A' : ['A', 'A'],
     'C' : ['C', 'C'],
     'G' : ['G', 'G'],
-    'T' : ['T', 'T']
+    'T' : ['T', 'T'],
+    'N' : ['N', 'N']
   ];
 }
 
@@ -78,7 +82,7 @@ void main(string[] args) {
 }
 
 void readArgs(string[] args) {
-  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "offspring|o", toDelegate(&handleOffspringPattern), "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "diploidOutput|d", &diploidOutput);
+  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "offspring|o", toDelegate(&handleOffspringPattern), "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "diploidOutput|d", &diploidOutput, "positions_file|p", &positions_filename);
   
   enforce(minDepth > 0 && maxDepth > minDepth, "maxDepth should be larger than minDepth");
   enforce(args.length > 1, "need at least one file");
@@ -113,6 +117,7 @@ General Options:
 -c, --chromosome: chromosome label
 -o, --offspring: denote the index of any offspring samples including the two parents, e.g. 1(2,3);4(5,6) to denote two trios where the first and the fourth samples are the offspring of the parental haplotypes (2,3) and (5,6).
 -d, --diploidOutput: Output as diploid alleles, using IUPAC symbols for heterozygotes
+-p, --positions_file: File with line-separated positions, at which output is forced (even for missing or homozygous calls)
 
 Options only for type VCF:
 -m, --minDepth [=5]
@@ -229,21 +234,31 @@ char[] readCG(string filename, char[] ref_seq) {
   auto line_count = 0;
   auto seq = new char[ref_seq.length];
   seq[] = 'N';
+  bool chromosome_read;
   foreach(line; cg_file.byLine().filter!(l => !(startsWith(l, "#") || startsWith(l, ">") || l.strip().length == 0))()) {
-    if(line_count++ % 10000 == 0)
-      stderr.writeln("processing line ", line_count);
 
     auto fields = line.strip().split("\t");
-    if(fields[2] != chromosome) continue;
 
     auto chrom = fields[2];
     auto begin = to!int(fields[3]);
     auto end = to!int(fields[4]);
+    if(line_count++ % 100000 == 0) {
+      stderr.writefln("processing pos %s:%s-%s", chrom, begin, end);
+      // break;
+    }
+    if(chrom != chromosome) {
+      if(chromosome_read)
+        break;
+      else
+        continue;
+    }
+    chromosome_read = true;
     auto zygosity = to!zygosity_t(tr(fields[5], "-", "_").toUpper());
     auto varType = to!vartype_t(tr(fields[6], "-", "_").toUpper());
     auto alleleRef = fields[7];
     auto allele1 = fields[8];
     auto allele2 = fields[9];
+
     
     if(varType == vartype_t.REF && zygosity == zygosity_t.HOM) {
       seq[begin .. end] = ref_seq[begin .. end];
@@ -314,37 +329,52 @@ unittest {
 void printOutput(char[][] consensusSequences) {
   auto nr_called_sites = 0;
   auto nrHaplotypes = 2 * consensusSequences.length;
+  size_t[] forced_positions;
+  size_t current_position_index = 0;
+  if(positions_filename.length > 0) {
+    forced_positions = readPositions(positions_filename);
+    stderr.writeln("read positions: ", forced_positions[0..20]);
+  }
   foreach(i; 0 .. consensusSequences[0].length) {
     if(i % 1000000 == 0)
       stderr.writeln("position ", i);
-    if(!hasGap(consensusSequences, i)) {
-      nr_called_sites += 1;
-      if(hasSNP(consensusSequences, i)) {
-        char[] alleleString;
-        if(diploidOutput) {
-          alleleString = consensusSequences.map!(c => c[i])().array();
-        }
-        else {
-          auto allPhasings = getAllPhasings(consensusSequences.map!(c => c[i])().array());
-          if(nrHaplotypes == 2)
-            alleleString = allPhasings[0];
-          else {
-            auto prunedPhasings = pruneInconsistentPhasings(allPhasings, offspring_pattern);
-            if(prunedPhasings.length == 0)
-              prunedPhasings = [iota(nrHaplotypes - offspring_pattern.length * 2).map!"'?'"().array()];
-            alleleString = prunedPhasings.joiner(",").array().to!(char[]);
-          }
-        }
-        writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
-        nr_called_sites = 0;
+    if(hasGap(consensusSequences, i))
+      continue;
+    nr_called_sites += 1;
+    if(hasSNP(consensusSequences, i) || ((current_position_index < forced_positions.length - 1) && (forced_positions[current_position_index] == i + 1))) {
+      char[] alleleString;
+      if(diploidOutput) {
+        alleleString = consensusSequences.map!(c => c[i])().array();
       }
+      else {
+        auto allPhasings = getAllPhasings(consensusSequences.map!(c => c[i])().array());
+        if(nrHaplotypes == 2)
+          alleleString = allPhasings[0];
+        else {
+          auto prunedPhasings = pruneInconsistentPhasings(allPhasings, offspring_pattern);
+          if(prunedPhasings.length == 0)
+            prunedPhasings = [iota(nrHaplotypes - offspring_pattern.length * 2).map!"'?'"().array()];
+          alleleString = prunedPhasings.joiner(",").array().to!(char[]);
+        }
+      }
+      if(forced_positions[current_position_index] == i + 1) {
+        // writeln("forced position: ", forced_positions[current_position_index]);
+        current_position_index += 1;
+      }
+      writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
+      nr_called_sites = 0;
     }
   }
 }
 
+size_t[] readPositions(string filename) {
+  auto f = File(filename, "r");
+  return f.byLine().map!"to!size_t(a.strip())"().array();
+}
+
 bool hasGap(in char[][] consensusSequences, size_t i) {
   foreach(s; consensusSequences) {
-    if(s[i] !in IUPAC_dna_rev)
+    if(s[i] !in IUPAC_dna_rev || s[i] == 'N')
       return true;
   }
   return false;
@@ -358,7 +388,7 @@ unittest {
 
 bool hasSNP(in char[][] consensusSequences, size_t i) {
   foreach(s; consensusSequences) {
-    if(!canFind("ACTG", s[i]) || s[i] != consensusSequences[0][i])
+    if(!canFind("ACTGN", s[i]) || s[i] != consensusSequences[0][i])
       return true;
   }
   return false;
