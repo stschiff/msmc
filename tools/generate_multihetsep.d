@@ -5,6 +5,7 @@ import std.getopt;
 import std.functional;
 import std.exception;
 import std.string;
+import std.c.stdlib : exit;
 import std.regex: match;
 import std.algorithm;
 import std.conv;
@@ -21,13 +22,11 @@ size_t minDepth = 5;
 size_t maxDepth = 20;
 size_t minMapQ = 20;
 size_t minConsQ = 20;
-size_t[2][size_t] offspring_pattern;
 string[] filenames;
 string ref_filename;
 FILE_TYPE[] types;
 string chromosome;
 string ref_chr;
-bool diploidOutput;
 string positions_filename;
 
 static this() {
@@ -82,7 +81,7 @@ void main(string[] args) {
 }
 
 void readArgs(string[] args) {
-  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "offspring|o", toDelegate(&handleOffspringPattern), "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "diploidOutput|d", &diploidOutput, "positions_file|p", &positions_filename);
+  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "positions_file|p", &positions_filename);
   
   enforce(minDepth > 0 && maxDepth > minDepth, "maxDepth should be larger than minDepth");
   enforce(args.length > 1, "need at least one file");
@@ -90,22 +89,10 @@ void readArgs(string[] args) {
   if(filenames[0] == "-")
     enforce(filenames.length == 1, "stdin can't be combined with other files");
   enforce(types.length == filenames.length, "types must be set for each file");
-  stderr.writeln("input offspring pattern: ", offspring_pattern);
 }
 
 void handleTypes(string option, string value) {
   types = value.split(",").map!(a => to!FILE_TYPE(a)).array();
-}
-
-void handleOffspringPattern(string option, string value) {
-  foreach(pattern; value.split(";")) {
-    auto m = pattern.match(r"(\d+)\((\d+),(\d+)\)");
-    enforce(m.captures.length() == 4, text(m.captures));
-    auto child = m.captures[1].to!size_t();
-    auto father = m.captures[2].to!size_t();
-    auto mother = m.captures[3].to!size_t();
-    offspring_pattern[child] = [father, mother];
-  }
 }
 
 void printHelp() {
@@ -115,8 +102,6 @@ if <file1>='-', read from stdin.
 General Options:
 -t, --types: comma-separated string of either VCF or CG, must be given for each file
 -c, --chromosome: chromosome label
--o, --offspring: denote the index of any offspring samples including the two parents, e.g. 1(2,3);4(5,6) to denote two trios where the first and the fourth samples are the offspring of the parental haplotypes (2,3) and (5,6).
--d, --diploidOutput: Output as diploid alleles, using IUPAC symbols for heterozygotes
 -p, --positions_file: File with line-separated positions, at which output is forced (even for missing or homozygous calls)
 
 Options only for type VCF:
@@ -290,17 +275,21 @@ char[] readCG(string filename, char[] ref_seq) {
 
 char[] readFastaSequence(string filename, string ref_chr) {
   auto ref_file = File(filename, "r");
-  auto tag = ">" ~ ref_chr ~ " ";
+  auto pattern = r"^>" ~ ref_chr ~ r"[\s]*";
   char[] line;
   do
     ref_file.readln(line);
-  while(!startsWith(line, tag) && !ref_file.eof());
+  while(!line.match(pattern) && !ref_file.eof());
+  if(ref_file.eof()) {
+    stderr.writeln("chromosome not found in fasta file");
+    exit(1);
+  }
   
   stderr.writeln("found fasta region ", strip(line));
   ref_file.readln(line);
   char[] ref_seq;
   do {
-    ref_seq ~= line.strip();
+    ref_seq ~= line.strip.toUpper;
     ref_file.readln(line);
   } while(!startsWith(line, ">") && !ref_file.eof());
 
@@ -341,24 +330,11 @@ void printOutput(char[][] consensusSequences) {
     if(hasGap(consensusSequences, i))
       continue;
     nr_called_sites += 1;
-    if(hasSNP(consensusSequences, i) || ((current_position_index < forced_positions.length - 1) && (forced_positions[current_position_index] == i + 1))) {
-      char[] alleleString;
-      if(diploidOutput) {
-        alleleString = consensusSequences.map!(c => c[i])().array();
-      }
-      else {
-        auto allPhasings = getAllPhasings(consensusSequences.map!(c => c[i])().array());
-        if(nrHaplotypes == 2)
-          alleleString = allPhasings[0];
-        else {
-          auto prunedPhasings = pruneInconsistentPhasings(allPhasings, offspring_pattern);
-          if(prunedPhasings.length == 0)
-            prunedPhasings = [iota(nrHaplotypes - offspring_pattern.length * 2).map!"'?'"().array()];
-          alleleString = prunedPhasings.joiner(",").array().to!(char[]);
-        }
-      }
-      if(forced_positions[current_position_index] == i + 1) {
-        // writeln("forced position: ", forced_positions[current_position_index]);
+    if(hasSNP(consensusSequences, i) || (((forced_positions.length > 0) && (current_position_index < forced_positions.length - 1) && (forced_positions[current_position_index] == i + 1)))) {
+
+      auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
+
+      if((forced_positions.length > 0) && (forced_positions[current_position_index] == i + 1)) {
         current_position_index += 1;
       }
       writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
@@ -398,104 +374,4 @@ unittest {
   auto seqs = ["ACCR", "ANCC"].map!"a.dup"().array();
   assert(!hasSNP(seqs, 0));
   assert(hasSNP(seqs, 3));
-}
-
-char[][] getAllPhasings(in char[] genotypes) {
-  char[][] ret;
-  auto alleles = IUPAC_dna_rev[genotypes[0]];
-  if(alleles[0] == alleles[1])
-    ret = [alleles.dup];
-  else {
-    ret = [alleles.dup, [alleles[1], alleles[0]]];
-  }
-  if(genotypes.length > 1) {
-    foreach(g; genotypes[1 .. $]) {
-      auto al = IUPAC_dna_rev[g];
-      if(al[0] == al[1]) {
-        foreach(ref str; ret) {
-          str ~= al.dup;
-        }
-      }
-      else {
-        char[][] newRet;
-        foreach(r; ret) {
-          newRet ~= (r ~ al.dup);
-          newRet ~= (r ~ [al[1], al[0]]);
-        }
-        ret = newRet;
-      }
-    }
-  }
-  return ret.uniq.array();
-}
-
-unittest {
-  assert(equal(getAllPhasings(['A']).joiner(","), "AA"));
-  assert(equal(getAllPhasings(['A', 'C']).joiner(","), "AACC"));
-  assert(equal(getAllPhasings(['R']).joiner(","), "AG,GA"));
-  assert(equal(getAllPhasings(['R', 'A']).joiner(","), "AGAA,GAAA"));
-  assert(equal(getAllPhasings(['R', 'R']).joiner(","), "AGAG,AGGA,GAAG,GAGA"));
-}
-
-char[][] pruneInconsistentPhasings(in char[][] allPhasings, size_t[2][size_t] offspring_pattern) {
-  size_t[] consistentIndices;
-  foreach(i, alleles; allPhasings) {
-    auto consistent = true;
-    foreach(offspringIndex; offspring_pattern.keys()) {
-      if(!consistentPhasing(alleles, offspringIndex, offspring_pattern[offspringIndex])) {
-        consistent = false;
-        break;
-      }
-    }
-    if(consistent)
-      consistentIndices ~= i;
-  }
-  
-  return consistentIndices
-    .map!(i => allPhasings[i].dup)()
-    .map!(al => iota(al.length).filter!(i => (i/2 + 1) !in offspring_pattern)().map!(i => al[i]).array())
-    .array();
-}
-
-unittest {
-  auto seqs = ["ACAAAC", "ACAACA", "CAAAAC", "CAAACA"].map!"a.dup"().array();
-  size_t[2][size_t] o;
-  o[3] = [1, 2];
-  auto pruned = pruneInconsistentPhasings(seqs, o);
-  assert(equal(pruned, ["CAAA"]), text(pruned));
-}
-
-bool consistentPhasing(in char[] alleles, size_t offspring, size_t[2] parents) {
-  auto offspringAl1 = (offspring - 1) * 2;
-  auto offspringAl2 = (offspring - 1) * 2 + 1;
-  auto fatherIndex = (parents[0] - 1) * 2;
-  auto motherIndex = (parents[1] - 1) * 2;
-  return alleles[offspringAl1] == alleles[fatherIndex] && alleles[offspringAl2] == alleles[motherIndex];
-}
-
-unittest {
-  // parents hom, child het
-  assert(consistentPhasing("AACCAC", 3, [1, 2]));
-  assert(!consistentPhasing("AACCCA", 3, [1, 2]));
-  
-  // one parent het
-  assert(consistentPhasing("ACAAAA", 3, [1, 2]));
-  assert(!consistentPhasing("CAAAAA", 3, [1, 2]));
-  assert(consistentPhasing("AAACAA", 3, [1, 2]));
-  assert(!consistentPhasing("AACAAA", 3, [1, 2]));
-
-  // both parents het
-  assert(consistentPhasing("ACACAA", 3, [1, 2]));
-  assert(!consistentPhasing("ACCAAA", 3, [1, 2]));
-  assert(!consistentPhasing("CAACAA", 3, [1, 2]));
-  assert(!consistentPhasing("CACAAA", 3, [1, 2]));
-  
-  // all hets
-  assert(consistentPhasing("ACCAAC", 3, [1, 2]));
-  assert(consistentPhasing("CAACCA", 3, [1, 2]));
-  assert(!consistentPhasing("ACACAC", 3, [1, 2]));
-  assert(!consistentPhasing("CACAAC", 3, [1, 2]));
-  assert(!consistentPhasing("ACACCA", 3, [1, 2]));
-  assert(!consistentPhasing("CACACA", 3, [1, 2]));
-  
 }
