@@ -29,7 +29,7 @@ void main(string[] args) {
 } 
 
 void readArgs(string[] args) {
-  getopt(args, "hapFile|h", &haplotypeFileName, "multihetsepIndex|i", &multihetsepIndices, "hapsIndex|j", &hapsIndices);
+  getopt(args, "hapsFile|h", &haplotypeFileName, "multihetsepIndex|i", &multihetsepIndices, "hapsIndex|j", &hapsIndices);
   nrIndividuals = multihetsepIndices.length;
   enforce(nrIndividuals > 0, "need to specify at least one individual");
   enforce(multihetsepIndices.length == hapsIndices.length, "need same number of indices in multihetsep and hapsfile");
@@ -43,6 +43,7 @@ void readArgs(string[] args) {
 void printHelpMessage() {
   stderr.writeln("./multihetsep_phase.d [Options] <multihetsep_file>
 Options:
+  -h, --hapsFile
   -i, --multihetsepIndex
   -j, --hapsIndex");
 }
@@ -52,26 +53,30 @@ void run() {
   auto multihetsepF = File(multihetsep_filename, "r");
   auto hapsFile = File(haplotypeFileName, "r");
   auto hapsFileRange = hapsFile.byLine;
+  char[][] hapsFields;
   foreach(line; multihetsepF.byLine) {
+    // stderr.writeln(line);
     auto fields = line.strip.split;
     auto chr = fields[0];
     auto pos = fields[1].to!size_t();
     auto nr_called = fields[2];
-    char[][] hapsFields;
     while(lastHapsFilePos < pos && !hapsFileRange.empty) {
       auto hapsFileLine = hapsFileRange.front.dup;
       hapsFileRange.popFront;
       hapsFields = hapsFileLine.strip.split;
       lastHapsFilePos = hapsFields[2].to!size_t();
     }
+    // stderr.writeln(hapsFields);
     char[] alleleString;
     if(lastHapsFilePos == pos) {
       foreach(i; 0 .. nrIndividuals) {
         auto alleles = fields[3 + multihetsepIndices[i]];
         auto al = hapsFields[3..5].joiner.array;
-        auto gens = hapsFields[5 + 2 * hapsIndices[i] .. 5 + 2 * (hapsIndices[i] + 1)].map!(a => a[0].to!size_t())().array;
+        // stderr.writeln(hapsFields[5 + 2 * hapsIndices[i] .. 5 + 2 * (hapsIndices[i] + 1)]);
+        auto gens = hapsFields[5 + 2 * hapsIndices[i] .. 5 + 2 * (hapsIndices[i] + 1)].map!(a => a.to!size_t())().array;
         enforce((alleles[0] == al[0] && alleles[1] == al[1]) || (alleles[0] == al[1] || alleles[1] == al[0]), 
                 text("wrong alleles at position", pos));
+        // stderr.writeln(pos, " ", gens, " ", al);
         alleleString ~= gens.map!(g => al[g].to!char())().array;
       }
     }
@@ -104,6 +109,6 @@ void run() {
       }
       alleleString = phasings.joiner(",").map!"a.to!char()"().array;
     }
-    writefln("%s\t%s\t%s\t%s\n", chr, pos, nr_called, alleleString);
+    writefln("%s\t%s\t%s\t%s", chr, pos, nr_called, alleleString);
   }
 }
