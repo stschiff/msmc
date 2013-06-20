@@ -86,7 +86,7 @@ void runPopSize() {
   auto times = json["results"].array[$ - 1]["updatedParams"]["timeIntervals"].fromJSON!(double[])();
   auto lambdaVec = json["results"].array[$ - 1]["updatedParams"]["lambdaVec"].fromJSON!(double[])();
   enforce(lambdaVec.length == times.length, "cross-population run, use lambda instead");
-  // times[0] = times[1] / 4.0;
+  times[0] = times[1] / 4.0;
   foreach(i; 0 .. lambdaVec.length) {
     if(unscaled) {
       auto t = 2.0 * getN() * times[i];
