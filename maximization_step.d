@@ -94,9 +94,15 @@ class MinFunc {
   };
   
   bool invalid(in double[] x) {
-    foreach(xx; x) {
+    foreach(i, xx; x) {
       if(xx < 0.0 || isNaN(xx))
         return true;
+    }
+    if(initialParams.nrSubpopulations == 2 && !fixedPopSize) {
+      for(auto i = 1; i < nrParams; i += 3) {
+        if(x[i] > 0.5 * (x[i - 1] + x[i + 1]))
+          return true;
+      }
     }
     return false;
   }
@@ -219,6 +225,9 @@ class MinFunc {
     double ret = 0.0;
     foreach(bv; 0 .. initialParams.nrMarginals) {
       foreach(au; 0 .. initialParams.nrMarginals) {
+        auto degen = cast(double)initialParams.marginalIndex.getDegeneracyForMarginalIndex(au);
+        // ret += expectationResult[au][bv] / degen *
+        //        log(params.transitionRate.transitionProbabilityMarginal(au, bv) / degen);
         ret += expectationResult[au][bv] * log(params.transitionRate.transitionProbabilityMarginal(au, bv));
       }
     }

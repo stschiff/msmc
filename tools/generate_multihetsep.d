@@ -102,7 +102,7 @@ if <file1>='-', read from stdin.
 General Options:
 -t, --types: comma-separated string of either VCF or CG, must be given for each file
 -c, --chromosome: chromosome label
--p, --positions_file: File with line-separated positions, at which output is forced (even for missing or homozygous calls)
+-p, --positions_file: File with line-separated positions, at which exclusively to call 
 
 Options only for type VCF:
 -m, --minDepth [=5]
