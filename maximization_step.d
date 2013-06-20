@@ -72,6 +72,7 @@ class MinFunc {
   bool fixedPopSize, fixedRecombination;
   
   this(in double[][] expectationResult, MSMCmodel initialParams, in size_t[] timeSegmentPattern, bool fixedPopSize, bool fixedRecombination) {
+    assert(!invalid(initialParams));
     this.initialParams = initialParams;
     this.timeSegmentPattern = timeSegmentPattern;
     this.expectationResult = expectationResult;
@@ -86,21 +87,31 @@ class MinFunc {
   }
   
   double opCall(in double[] x) {
-    // stderr.writefln("called minFunc(%s)", x);
-    if(invalid(x))
-      return penalty;
+    foreach(xx; x) {
+      if(xx < 0.0 || isNaN(xx))
+        return penalty;
+    }
     MSMCmodel newParams = makeParamsFromVec(x);
+    if(invalid(newParams))
+      return penalty;
     return -logLikelihood(newParams);
   };
   
-  bool invalid(in double[] x) {
-    foreach(i, xx; x) {
-      if(xx < 0.0 || isNaN(xx))
+  bool invalid(MSMCmodel params) {
+    if(params.recombinationRate < 0.0 || isNaN(params.recombinationRate))
+      return true;
+    
+    foreach(au, l; params.lambdaVec) {
+      if(l < 0.0 || isNaN(l))
         return true;
-    }
-    if(initialParams.nrSubpopulations == 2 && !fixedPopSize) {
-      for(auto i = 1; i < nrParams; i += 3) {
-        if(x[i] > 0.5 * (x[i - 1] + x[i + 1]))
+      auto aij = params.marginalIndex.getIndexFromMarginalIndex(au);
+      auto triple = params.marginalIndex.getTripleFromIndex(aij);
+      auto subpop1 = params.marginalIndex.subpopLabels[triple.ind1];
+      auto subpop2 = params.marginalIndex.subpopLabels[triple.ind2];
+      if(subpop1 != subpop2) {
+        auto marginalIndex1 = params.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop1][subpop1];
+        auto marginalIndex2 = params.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop2][subpop2];
+        if(l > 0.5 * (params.lambdaVec[marginalIndex1] + params.lambdaVec[marginalIndex2]))
           return true;
       }
     }
@@ -254,13 +265,17 @@ unittest {
   auto timeSegmentPattern = [2UL, 2];
   
   auto minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, false, false);
-  auto x = [1, 2, 3, 4, 5, 6, 1.2];
-  assert(minFunc.getLambdaVecFromX(x) == [1, 2, 3, 1, 2, 3, 4, 5, 6, 4, 5, 6]);
+  auto x = [1, 1.5, 3, 4, 4.5, 6, 1.2];
+  assert(minFunc.getLambdaVecFromX(x) == [1, 1.5, 3, 1, 1.5, 3, 4, 4.5, 6, 4, 4.5, 6]);
   assert(minFunc.getRecombinationRateFromX(x) == 1.2);
+  assert(!minFunc.invalid(minFunc.makeParamsFromVec(x)));
+  x[1] = 2.5;
+  assert(minFunc.invalid(minFunc.makeParamsFromVec(x)));
+  
 
   minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, true, false);
-  x = [-23.4, -35.6, 1.4];
-  assert(minFunc.getLambdaVecFromXfixedPop(x) == [1, -23.4, 3, 4, -23.4, 6.0, 7.0, -35.6, 9.0, 10.0, -35.6, 12]);
+  x = [23.4, 35.6, 1.4];
+  assert(minFunc.getLambdaVecFromXfixedPop(x) == [1, 23.4, 3, 4, 23.4, 6.0, 7.0, 35.6, 9.0, 10.0, 35.6, 12]);
   assert(minFunc.getRecombinationRateFromX(x) == 1.4);
 
   minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, false, true);
@@ -282,7 +297,7 @@ unittest {
   auto maximizationStep = new MaximizationStep(expectationMatrix, params, timeSegmentPattern);
   maximizationStep.run(false);
   auto updatedParams = maximizationStep.getUpdatedParams();
-  
+    
   writeln("Maximization test: actual params: ", params);
   writeln("Maximization test: inferred params: ", updatedParams);
 }

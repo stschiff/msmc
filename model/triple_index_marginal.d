@@ -50,7 +50,7 @@ class MarginalTripleIndex : TripleIndex {
   
   private size_t[][] marginalIndexToIndicesMap;
   private size_t[] indexToMarginalIndexMap;
-  private size_t[][][] subpopulationTripleToMarginalIndexMap;
+  size_t[][][] subpopulationTripleToMarginalIndexMap;
   
   this(size_t nrTimeIntervals, in size_t[] subpopLabels)
   {

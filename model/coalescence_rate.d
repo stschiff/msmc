@@ -20,6 +20,7 @@
 module model.coalescence_rate;
 import std.stdio;
 import std.exception;
+import std.conv;
 import model.triple_index;
 import model.triple_index_marginal;
 
@@ -37,7 +38,7 @@ public:
     enforce(lambdaVec.length == marginalIndex.nrMarginals);
     this.lambdaVec = lambdaVec;
     foreach(l; lambdaVec)
-      enforce(l > 0.0, "need positive lambdaVec");
+      enforce(l > 0.0, text("lambda=", l, ", need positive lambdaVec"));
     nrTimeSegments = marginalIndex.nrTimeIntervals;
     nrHaplotypes = marginalIndex.nrIndividuals;
     lambda = new double[][][](nrTimeSegments, nrHaplotypes, nrHaplotypes);
