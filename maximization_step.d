@@ -24,6 +24,7 @@ import std.exception;
 import std.algorithm;
 import model.msmc_model;
 import model.triple_index;
+import model.triple_index_marginal;
 import powell;
 
 class MaximizationStep {
@@ -72,7 +73,6 @@ class MinFunc {
   bool fixedPopSize, fixedRecombination;
   
   this(in double[][] expectationResult, MSMCmodel initialParams, in size_t[] timeSegmentPattern, bool fixedPopSize, bool fixedRecombination) {
-    assert(!invalid(initialParams));
     this.initialParams = initialParams;
     this.timeSegmentPattern = timeSegmentPattern;
     this.expectationResult = expectationResult;
@@ -87,31 +87,31 @@ class MinFunc {
   }
   
   double opCall(in double[] x) {
-    foreach(xx; x) {
-      if(xx < 0.0 || isNaN(xx))
-        return penalty;
-    }
-    MSMCmodel newParams = makeParamsFromVec(x);
-    if(invalid(newParams))
+    if(invalid(x))
       return penalty;
+    MSMCmodel newParams = makeParamsFromVec(x);
     return -logLikelihood(newParams);
   };
   
-  bool invalid(MSMCmodel params) {
-    if(params.recombinationRate < 0.0 || isNaN(params.recombinationRate))
+  bool invalid(in double[] x) {
+    auto lambdaVec = fixedPopSize ? getLambdaVecFromXfixedPop(x) : getLambdaVecFromX(x);
+    auto recombinationRate = fixedRecombination ? initialParams.recombinationRate : getRecombinationRateFromX(x);
+    auto marginalIndex = new MarginalTripleIndex(initialParams.nrTimeIntervals, initialParams.subpopLabels);
+    
+    if(recombinationRate < 0.0 || isNaN(recombinationRate))
       return true;
     
-    foreach(au, l; params.lambdaVec) {
+    foreach(au, l; lambdaVec) {
       if(l < 0.0 || isNaN(l))
         return true;
-      auto aij = params.marginalIndex.getIndexFromMarginalIndex(au);
-      auto triple = params.marginalIndex.getTripleFromIndex(aij);
-      auto subpop1 = params.marginalIndex.subpopLabels[triple.ind1];
-      auto subpop2 = params.marginalIndex.subpopLabels[triple.ind2];
+      auto aij = marginalIndex.getIndexFromMarginalIndex(au);
+      auto triple = marginalIndex.getTripleFromIndex(aij);
+      auto subpop1 = marginalIndex.subpopLabels[triple.ind1];
+      auto subpop2 = marginalIndex.subpopLabels[triple.ind2];
       if(subpop1 != subpop2) {
-        auto marginalIndex1 = params.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop1][subpop1];
-        auto marginalIndex2 = params.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop2][subpop2];
-        if(l > 0.5 * (params.lambdaVec[marginalIndex1] + params.lambdaVec[marginalIndex2]))
+        auto marginalIndex1 = marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop1][subpop1];
+        auto marginalIndex2 = marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop2][subpop2];
+        if(l > 0.5 * (lambdaVec[marginalIndex1] + lambdaVec[marginalIndex2]))
           return true;
       }
     }
@@ -268,9 +268,9 @@ unittest {
   auto x = [1, 1.5, 3, 4, 4.5, 6, 1.2];
   assert(minFunc.getLambdaVecFromX(x) == [1, 1.5, 3, 1, 1.5, 3, 4, 4.5, 6, 4, 4.5, 6]);
   assert(minFunc.getRecombinationRateFromX(x) == 1.2);
-  assert(!minFunc.invalid(minFunc.makeParamsFromVec(x)));
+  assert(!minFunc.invalid(x));
   x[1] = 2.5;
-  assert(minFunc.invalid(minFunc.makeParamsFromVec(x)));
+  assert(minFunc.invalid(x));
   
 
   minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, true, false);
