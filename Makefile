@@ -13,14 +13,21 @@ model/triple_index_marginal.d model/triple_index.d model/msmc_model.d powell.d b
 model/propagation_core_fastImpl.d maximization_step.d expectation_step.d utils.d amoeba.d \
 model/stateVec.d model/stateVecAllocator.d
 
-all : unittest build/msmc
+all : unittest debug
 
 unittest :
 	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
 	build/unittest
 
-build/msmc : ${msmc_src}
-	dmd ${msmc_src} -O -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/msmc
+debug : build/debug/msmc
+
+release : build/release/msmc
+
+build/debug/msmc : ${msmc_src}
+	dmd ${msmc_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/debug/msmc
+
+build/release/msmc : ${msmc_src}
+	ldmd2 ${msmc_src} -O -release -inline -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/release/msmc
 
 testcoverage :
 	mkdir -p code_coverage
@@ -29,6 +36,6 @@ testcoverage :
 	mv *.lst code_coverage/
 
 clean :
-	rm build/*
+	find build -type f -delete
 
 .PHONY : all unittest testcoverage clean
