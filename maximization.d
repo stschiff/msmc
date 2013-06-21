@@ -41,6 +41,7 @@ class MaximizationApplication {
   double mutationRate;
   size_t[] subpopLabels;
   size_t[] timeSegmentPattern;
+  uint nrThreads;
   
   double[][] expectationResult;
   
@@ -76,8 +77,11 @@ class MaximizationApplication {
         std.getopt.config.caseSensitive,
         "mutationRate|m", &mutationRate,
         "subpopLabels|P", &subpopLabelsString,
+        "nrThreads|t", &nrThreads,
         "timeSegmentPattern|p", &timeSegmentPatternString
     );
+    if(nrThreads)
+      std.parallelism.defaultPoolThreads(nrThreads);
     enforce(args.length == 2, "need exactly one input file");
     inputFileName = args[1];
   }
@@ -86,6 +90,7 @@ class MaximizationApplication {
     stderr.writeln("Usage: msmc maximization [options] datafiles
 -p, --timeSegmentPattern=<string> : pattern of fixed segments [=1*4+13*2+1*10]
 -m, --mutationRate=<double> : scaled mutation rate to use
+-t, --nrThreads=<uint> : nr of threads (defaults to nr of CPUs)
 -P, --subpopLabels=<string> comma-separated subpopulation labels");
     exit(0);
   }
