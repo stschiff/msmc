@@ -22,6 +22,8 @@ import std.math;
 import std.conv;
 import std.stdio;
 import std.exception;
+import std.parallelism;
+import std.range;
 import model.time_intervals;
 import model.triple_index_marginal;
 import model.coalescence_rate;
@@ -44,13 +46,29 @@ class TransitionRate {
     this.rho = rho;
     this.marginalIndex = marginalIndex;
     coalIntegrator = new CoalescenceRateIntegrator(timeIntervals, coal);
-    fillTransitionProbabilities();
+    fillTransitionProbabilitiesParallel();
+    // fillTransitionProbabilitiesSingleThread();
   }
   
-  private void fillTransitionProbabilities() {
+  private void fillTransitionProbabilitiesSingleThread() {
     transitionProbabilitiesQ2 = new double[][](marginalIndex.nrStates, marginalIndex.nrStates);
     transitionProbabilitiesQ1 = new double[](marginalIndex.nrStates);
     foreach(bv; 0 .. marginalIndex.nrMarginals) {
+      auto sum = 0.0;
+      foreach(au; 0 .. marginalIndex.nrMarginals) {
+        auto aij = marginalIndex.getIndexFromMarginalIndex(au);
+        auto bkl = marginalIndex.getIndexFromMarginalIndex(bv);
+        transitionProbabilitiesQ2[au][bv] = transitionProbabilityOffDiagonal(aij, bkl);
+        sum += transitionProbabilitiesQ2[au][bv] * marginalIndex.getDegeneracyForMarginalIndex(au);
+      }
+      transitionProbabilitiesQ1[bv] = 1.0 - sum;
+    }
+  }
+
+  private void fillTransitionProbabilitiesParallel() {
+    transitionProbabilitiesQ2 = new double[][](marginalIndex.nrStates, marginalIndex.nrStates);
+    transitionProbabilitiesQ1 = new double[](marginalIndex.nrStates);
+    foreach(bv; taskPool.parallel(iota(marginalIndex.nrMarginals))) {
       auto sum = 0.0;
       foreach(au; 0 .. marginalIndex.nrMarginals) {
         auto aij = marginalIndex.getIndexFromMarginalIndex(au);

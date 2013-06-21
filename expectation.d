@@ -31,6 +31,7 @@ import std.typecons;
 import std.regex;
 import std.exception;
 import std.c.stdlib;
+import std.parallelism;
 import core.memory;
 import model.msmc_hmm;
 import model.msmc_model;
@@ -44,7 +45,7 @@ import expectation_step;
 class ExpectationApplication {
   
   double mutationRate;
-  size_t nrSubThreads;
+  uint nrThreads;
   size_t nrTtotSegments;
   size_t[] subpopLabels;
   string[] inputFileNames;
@@ -61,7 +62,6 @@ class ExpectationApplication {
   
   this(string[] args) {
     nrTimeSegments = 40;
-    nrSubThreads = 1;
     nrTtotSegments = 10;
     parseCommandLine(args);
   }
@@ -92,11 +92,13 @@ class ExpectationApplication {
         "mutmationRate|m", &mutationRate,
         "recombinationRate|r", &recombinationRate,
         "subpopLabels|P", &subpopLabelsString,
-        "nrSubThreads|t", &nrSubThreads,
+        "nrThreads|t", &nrThreads,
         "nrTtotSegments|T", &nrTtotSegments,
         "nrTimeSegments|n", &nrTimeSegments,
         "demographyFiles", &demographyFiles
     );
+    if(nrThreads)
+      std.parallelism.defaultPoolThreads(nrThreads);
     inputFileNames = args[1..$];
   }
 
@@ -114,7 +116,7 @@ class ExpectationApplication {
 
       -r, --recombinationRate=<double> : scaled recombination rate
 
-      -t, --nrSubThreads=<size_t> : nr of threads [=1]
+      -t, --nrThreads=<size_t> : nr of threads [=1]
 
       -T, --nrTtotSegments=<size_t> : number of discrete values of Ttot [=10]
 
@@ -137,7 +139,7 @@ class ExpectationApplication {
     
     ExpectationStep expectationStep;
     try {
-      expectationStep = new ExpectationStep(nrSubThreads, inputFileNames, msmc, 1000);
+      expectationStep = new ExpectationStep(inputFileNames, msmc, 1000);
     }
     catch(Exception e) {
       displayHelpMessageAndExit(e);

@@ -28,7 +28,6 @@ import expectation_step;
 import maximization_step;
 
 class BaumWelchStepper {
-  size_t nrSubThreads;
   bool verbose;
   const size_t[] timeSegmentPattern;
   const string[] inputFileNames;
@@ -48,8 +47,7 @@ class BaumWelchStepper {
   bool fixedPopSize;
   bool fixedRecombination;
 
-  this(MSMCmodel initialParams, size_t nrSubThreads, size_t[] timeSegmentPattern, string[] inputFileNames) {
-    this.nrSubThreads = nrSubThreads;
+  this(MSMCmodel initialParams, size_t[] timeSegmentPattern, string[] inputFileNames) {
     verbose = false;
     this.timeSegmentPattern = timeSegmentPattern;
     this.inputFileNames = inputFileNames;
@@ -74,7 +72,7 @@ class BaumWelchStepper {
     stderr.writeln(currentIterationParams);
 
     if(nrIterationsRun == 0) {
-      expectationStep = new ExpectationStep(nrSubThreads, inputFileNames, currentIterationParams, hmmStrideWidth, 1000, naiveImplementation);
+      expectationStep = new ExpectationStep(inputFileNames, currentIterationParams, hmmStrideWidth, 1000, naiveImplementation);
       expectationStep.run();
       logLikelihood = expectationStep.getLogLikelihood();
       stderr.writeln("first logLikelihood: ", logLikelihood);
@@ -87,28 +85,15 @@ class BaumWelchStepper {
       maximizationStep.fixedRecombination = fixedRecombination;
       maximizationStep.run(true);
       auto updatedParams = maximizationStep.getUpdatedParams();
-      auto newExpectationStep = new ExpectationStep(nrSubThreads, inputFileNames, updatedParams, hmmStrideWidth, 1000, naiveImplementation);
+      auto newExpectationStep = new ExpectationStep(inputFileNames, updatedParams, hmmStrideWidth, 1000, naiveImplementation);
       newExpectationStep.run();
-      // if(newExpectationStep.getLogLikelihood() > logLikelihood) {
-        stderr.writeln("found new parameters: ", updatedParams);
-        stderr.writefln("previous logLikelihood: %s. new log likelihood: %s", logLikelihood, newExpectationStep.getLogLikelihood());
-        currentIterationParams = updatedParams;
-        logLikelihood = newExpectationStep.getLogLikelihood();
-        modelTransitions = maximizationStep.getModelTransitions();
-        expectationStep = newExpectationStep;
-        break;
-      // }
-      // else {
-      //   stderr.writefln("previous logLikelihood: %s. new log likelihood: %s", logLikelihood, newExpectationStep.getLogLikelihood());
-      //   hmmStrideWidth /= 2;
-      //   if(hmmStrideWidth < 50) {
-      //     finished = true;
-      //     break;
-      //   }
-      //   stderr.writeln("bad update, trying again with new stride width: ", hmmStrideWidth);
-      //   expectationStep = new ExpectationStep(nrSubThreads, inputFileNames, currentIterationParams, hmmStrideWidth, 1000, naiveImplementation);
-      //   expectationStep.run();
-      // }
+      stderr.writeln("found new parameters: ", updatedParams);
+      stderr.writefln("previous logLikelihood: %s. new log likelihood: %s", logLikelihood, newExpectationStep.getLogLikelihood());
+      currentIterationParams = updatedParams;
+      logLikelihood = newExpectationStep.getLogLikelihood();
+      modelTransitions = maximizationStep.getModelTransitions();
+      expectationStep = newExpectationStep;
+      break;
     }    
     if(!finished) {
       addToReport();

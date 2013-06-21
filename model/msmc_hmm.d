@@ -158,7 +158,7 @@ class MSMC_hmm {
     have_run_forward = true;
   }
 
-  immutable(immutable(double)[])[] runBackward(size_t hmmStrideWidth=1000) {
+  double[][] runBackward(size_t hmmStrideWidth=1000) {
     enforce(have_run_forward);
 
     auto nrMarginals = propagationCore.getMSMC.nrMarginals;
@@ -175,11 +175,7 @@ class MSMC_hmm {
         forwardBackwardResult[i][] += expec[i][];
     }
 
-    immutable(immutable(double)[])[] iret;
-    foreach(row; forwardBackwardResult) {
-      iret ~= row.idup;
-    }
-    return iret;
+    return forwardBackwardResult;
   }
   
   private void getSingleExpectation(size_t pos, double[][] ret)

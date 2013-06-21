@@ -22,6 +22,7 @@ import std.getopt;
 import std.exception;
 import std.c.stdlib;
 import std.algorithm;
+import std.parallelism;
 import model.msmc_hmm;
 import model.data;
 import model.time_intervals;
@@ -33,6 +34,7 @@ size_t nrTimeSegments=40, nrTtotSegments=40, stride=1000;
 bool tTot = false;
 string inputFileName;
 size_t nrHaplotypes;
+uint nrThreads;
 
 void decodeMain(string[] args) {
   try {
@@ -52,9 +54,12 @@ void parseCommandlineArgs(string[] args) {
          "mutationRate|m", &mutationRate,
          "recombinationRate|r", &recombinationRate,
          "nrTimeSegments|t", &nrTimeSegments,
+         "nrThreads", &nrThreads,
          "nrTtotSegments|T", &nrTtotSegments,
          "tTot", &tTot,
          "stride|s", &stride);
+  if(nrThreads)
+    std.parallelism.defaultPoolThreads(nrThreads);
   enforce(args.length == 2, "need exactly one input file");
   inputFileName = args[1];
   nrHaplotypes = getNrHaplotypesFromFile(inputFileName);
@@ -68,6 +73,7 @@ Options:
 -m, --mutationRate <double>
 -r, --recombinationRate <double>
 -t, --nrTimeSegments <int>
+--nrThreads <int> : nr of threads, defaults to nr of CPUs
 -T, --nrTtotSegments <int>
 --tTot : output the total branch length rather than the first coalescent time
 -s, --stride <int>");

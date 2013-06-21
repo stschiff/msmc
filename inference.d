@@ -22,7 +22,7 @@ import std.math;
 import std.string;
 import std.conv;
 import std.getopt;
-import std.concurrency;
+import std.parallelism;
 import std.algorithm;
 import std.array;
 import std.json;
@@ -49,7 +49,7 @@ double mutationRate;
 double recombinationRate;
 size_t[] subpopLabels;
 auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
-auto nrSubThreads = 1UL;
+uint nrThreads;
 auto nrTtotSegments = 10UL;
 auto verbose = false;
 auto outFileName = "/dev/null";
@@ -67,7 +67,7 @@ auto helpString = "Usage: msmc inference [options] <datafiles>
     -o, --outFileName=<string> : file to write results to [=/dev/null]
     -m, --mutationRate=<double> : scaled mutation rate to use
     -r, --recombinationRate=<double> : scaled recombination rate to begin with [by default set to mutationRate / 4]
-    -t, --nrSubThreads=<size_t> : nr of threads to use [=1]
+    -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
     -p, --timeSegmentPattern=<string> : pattern of fixed segments [=10*1+15*2]
     -T, --nrTtotSegments=<size_t> : number of discrete values of Ttot [=10]
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
@@ -125,7 +125,7 @@ void parseCommandLine(string[] args) {
       "recombinationRate|r", &recombinationRate,
       "subpopLabels|P", &handleSubpopLabelsString,
       "timeSegmentPattern|p", &handleTimeSegmentPatternString,
-      "nrSubThreads|t", &nrSubThreads,
+      "nrThreads|t", &nrThreads,
       "nrTtotSegments|T", &nrTtotSegments,
       "verbose|v", &verbose,
       "outFileName|o", &outFileName,
@@ -137,6 +137,8 @@ void parseCommandLine(string[] args) {
       "fixedPopSize", &fixedPopSize,
       "fixedRecombination", &fixedRecombination
   );
+  if(nrThreads)
+    std.parallelism.defaultPoolThreads(nrThreads);
   enforce(!isNaN(mutationRate), "need to set mutation rate");
   if(isNaN(recombinationRate))
     recombinationRate = mutationRate / 4.0;
@@ -166,9 +168,9 @@ void runMemory() {
   // forward and backward
   auto memoryForPropagators = memoryForDiags + 2 * memoryForOffDiags;
     
-  auto nrFiles = nrSubThreads;
+  auto nrFiles = std.parallelism.defaultPoolThreads;
   if(nrFiles > inputFileNames.length)
-    nrFiles = cast(size_t)inputFileNames.length;
+    nrFiles = cast(uint)inputFileNames.length;
     
   auto ttotDummy = TimeIntervals.standardTotalBranchlengthIntervals(1, 2);
   int totalNrSegSites = 0;
@@ -202,7 +204,7 @@ void runBaumWelch() {
   if(demographyFiles)
     msmc = MSMCmodel.overrideDemographies(msmc, demographyFiles);
   
-  auto baumWelchStepper = new BaumWelchStepper(msmc, nrSubThreads, timeSegmentPattern, inputFileNames);
+  auto baumWelchStepper = new BaumWelchStepper(msmc, timeSegmentPattern, inputFileNames);
   baumWelchStepper.verbose = verbose;
   baumWelchStepper.naiveImplementation = naiveImplementation;
   baumWelchStepper.fixedPopSize = fixedPopSize;

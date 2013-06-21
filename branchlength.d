@@ -22,7 +22,7 @@ import std.math;
 import std.string;
 import std.conv;
 import std.getopt;
-import std.concurrency;
+import std.parallelism;
 import std.algorithm;
 import std.array;
 import std.json;
@@ -50,6 +50,7 @@ double mutationRate;
 size_t nrHaplotypes;
 string inputFileName;
 size_t nrTimeSegments = 40;
+uint nrThreads;
 
 void branchlengthMain(string[] args) {
   parseCommandLine(args);
@@ -73,8 +74,12 @@ void readArguments(string[] args) {
       std.getopt.config.caseSensitive,
       "mutationRate|m", &mutationRate,
       "recombinationRate|r", &recombinationRate,
+      "nrThreads|t", &nrThreads,
       "nrTimeSegments|n", &nrTimeSegments
   );
+  if(nrThreads) {
+    std.parallelism.defaultPoolThreads(nrThreads);
+  }
   enforce(!isNaN(mutationRate), "need to set mutation rate");
   inputFileName = args[1];
   nrHaplotypes = getNrHaplotypesFromFile(inputFileName);
@@ -87,6 +92,7 @@ static void displayHelpMessageAndExit() {
   stderr.writeln("Usage: msmc branchlength [options] <datafile>
 -n, --nrTimeSegments=<int> : nr of time intervals [=40]
 -m, --mutationRate=<double> : scaled mutation rate to use
+-t, --nrThreads=<int> : number of threads (defaults to nr of CPUs available)
 -r, --recombinationRate=<double> : scaled recombination rate to use [default mutationRate / 4]");
   exit(0);
 }
