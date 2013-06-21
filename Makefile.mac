@@ -27,7 +27,7 @@ build/debug/msmc : ${msmc_src}
 	dmd ${msmc_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/debug/msmc
 
 build/release/msmc : ${msmc_src}
-	dmd ${msmc_src} -O -release -inline -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/release/msmc
+	dmd ${msmc_src} -O -release -inline /opt/local/lib/libgsl.a /opt/local/lib/libgslcblas.a -odbuild -ofbuild/release/msmc
 
 testcoverage :
 	mkdir -p code_coverage
