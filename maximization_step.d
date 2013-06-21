@@ -46,7 +46,7 @@ class MaximizationStep {
   
   void run(bool verboseMaximization) {
     auto minFunc = new MinFunc(expectationResult, initialParams, timeSegmentPattern, fixedPopSize, fixedRecombination);
-    auto powell = new Powell!MinFunc(minFunc, verboseMaximization, 1.0e-20);
+    auto powell = new Powell!MinFunc(minFunc, verboseMaximization);
     auto x = minFunc.initialValues();
     auto xNew = powell.minimize(x);
     updatedParams = minFunc.makeParamsFromVec(xNew);
