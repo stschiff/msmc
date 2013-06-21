@@ -110,7 +110,7 @@ class TransitionRate {
         integ /= coal.getSemiMarginalLambda(a, m);
         sum += (1.0 - exp(-timeIntervals.delta(g) * coal.getSemiMarginalLambda(g, m))) *
           coalIntegrator.integrateSemiMarginalLambda(m, timeIntervals.rightBoundary(g),
-              timeIntervals.leftBoundary(a)) / coal.getSemiMarginalLambda(g, m) * integ;
+              timeIntervals.leftBoundary(a), g + 1, a) / coal.getSemiMarginalLambda(g, m) * integ;
       }
     }
     foreach(pair_index; 0 .. 2) {
@@ -136,7 +136,7 @@ class TransitionRate {
     }
   body {
     auto meanTime = timeIntervals.meanTimeWithLambda(b, coal.getTotalMarginalLambda(b));
-    double integ = coalIntegrator.integrateTotalMarginalLambda(meanTime, timeIntervals.leftBoundary(a)) / 
+    double integ = coalIntegrator.integrateTotalMarginalLambda(meanTime, timeIntervals.leftBoundary(a), b, a) / 
                    coal.getTotalMarginalLambda(a) *
                    (exp(-(t1 - timeIntervals.leftBoundary(a)) * coal.getTotalMarginalLambda(a)) -
                     exp(-(t2 - timeIntervals.leftBoundary(a)) * coal.getTotalMarginalLambda(a)));
@@ -146,7 +146,7 @@ class TransitionRate {
         auto m = pair_index == 0 ? k : l;
         sum += (1.0 - exp(-coal.getSemiMarginalLambda(g, m) * timeIntervals.delta(g))) / 
                coal.getSemiMarginalLambda(g, m) * 
-               coalIntegrator.integrateSemiMarginalLambda(m, timeIntervals.rightBoundary(g), meanTime);
+               coalIntegrator.integrateSemiMarginalLambda(m, timeIntervals.rightBoundary(g), meanTime, g + 1, b);
       }
     }
     foreach(pair_index; 0 .. 2) {
@@ -196,7 +196,7 @@ class TransitionRate {
     auto i = triple.ind1;
     auto j = triple.ind2;
     return coal.getLambda(a, i, j) / coal.getTotalMarginalLambda(a) * 
-        coalIntegrator.integrateTotalMarginalLambda(0.0, timeIntervals.leftBoundary(a)) *
+        coalIntegrator.integrateTotalMarginalLambda(0.0, timeIntervals.leftBoundary(a), 0, a) *
         (1.0 - exp(-timeIntervals.delta(a) * coal.getTotalMarginalLambda(a)));
   }
 }

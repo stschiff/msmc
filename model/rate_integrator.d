@@ -33,35 +33,66 @@ class CoalescenceRateIntegrator {
     this.coal = coal;
   }
     
-  private double LIntegral(double delegate(size_t) lambdaFunc, double from, double to) const
+  // private double LIntegral(double delegate(size_t) lambdaFunc, double from, double to, size_t fromIndex, size_t toIndex) const
+  // {
+  //   double sum = 0.0;
+  //   if(fromIndex == toIndex) {
+  //     return exp(-(to - from) * lambdaFunc(toIndex));
+  //   }
+  //   foreach(kappa; fromIndex + 1 .. toIndex) {
+  //     sum += lambdaFunc(kappa) * timeIntervals.delta(kappa);
+  //   }
+  //   
+  //   double ret = exp(-(timeIntervals.rightBoundary(fromIndex) - from) *
+  //              lambdaFunc(fromIndex) - sum - (to - timeIntervals.leftBoundary(toIndex)) * 
+  //              lambdaFunc(toIndex));
+  //   
+  //   return ret;
+  // }
+  
+  // double integrateSemiMarginalLambda(size_t branch, double from, double to, size_t fromIndex, size_t toIndex) const
+  // {
+  //   double lambdaFunc(size_t a) {
+  //     return coal.getSemiMarginalLambda(a, branch);
+  //   }
+  //   return LIntegral(&lambdaFunc, from, to, fromIndex, toIndex);
+  // }
+  // 
+  // double integrateTotalMarginalLambda(double from, double to, size_t fromIndex, size_t toIndex) const {
+  //   return LIntegral(&coal.getTotalMarginalLambda, from, to, fromIndex, toIndex);
+  // }
+  // 
+  double integrateSemiMarginalLambda(size_t branch, double from, double to, size_t fromIndex, size_t toIndex) const
   {
-    auto fromIndex = timeIntervals.findIntervalForTime(from);
-    auto toIndex = timeIntervals.findIntervalForTime(to);
     double sum = 0.0;
     if(fromIndex == toIndex) {
-      return exp(-(to - from) * lambdaFunc(toIndex));
+      return exp(-(to - from) * coal.getSemiMarginalLambda(toIndex, branch));
     }
     foreach(kappa; fromIndex + 1 .. toIndex) {
-      sum += lambdaFunc(kappa) * timeIntervals.delta(kappa);
+      sum += coal.getSemiMarginalLambda(kappa, branch) * timeIntervals.delta(kappa);
     }
     
     double ret = exp(-(timeIntervals.rightBoundary(fromIndex) - from) *
-               lambdaFunc(fromIndex) - sum - (to - timeIntervals.leftBoundary(toIndex)) * 
-               lambdaFunc(toIndex));
+               coal.getSemiMarginalLambda(fromIndex, branch) - sum - (to - timeIntervals.leftBoundary(toIndex)) * 
+               coal.getSemiMarginalLambda(toIndex, branch));
     
     return ret;
   }
-  
-  double integrateSemiMarginalLambda(size_t branch, double from, double to) const
-  {
-    double lambdaFunc(size_t a) {
-      return coal.getSemiMarginalLambda(a, branch);
-    }
-    return LIntegral(&lambdaFunc, from, to);
-  }
 
-  double integrateTotalMarginalLambda(double from, double to) const {
-    return LIntegral(&coal.getTotalMarginalLambda, from, to);
+  double integrateTotalMarginalLambda(double from, double to, size_t fromIndex, size_t toIndex) const {
+    double sum = 0.0;
+    if(fromIndex == toIndex) {
+      return exp(-(to - from) * coal.getTotalMarginalLambda(toIndex));
+    }
+    foreach(kappa; fromIndex + 1 .. toIndex) {
+      sum += coal.getTotalMarginalLambda(kappa) * timeIntervals.delta(kappa);
+    }
+    
+    double ret = exp(-(timeIntervals.rightBoundary(fromIndex) - from) *
+               coal.getTotalMarginalLambda(fromIndex) - sum - (to - timeIntervals.leftBoundary(toIndex)) * 
+               coal.getTotalMarginalLambda(toIndex));
+    
+    return ret;
   }
   
 }
