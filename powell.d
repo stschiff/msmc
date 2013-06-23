@@ -118,8 +118,11 @@ class Powell(T) : Linemethod!T {
       if (2.0*(fp-fret) <= ftol*(abs(fp)+abs(fret))+TINY) {
         return p;
       }
-      if (iter == ITMAX)
-          throw new Exception("powell exceeding maximum iterations.");
+      if(iter == ITMAX) {
+        // throw new Exception("powell exceeding maximum iterations.");
+        stderr.writeln("WARNING: powell exceeding maximum iterations.");
+        return p;
+      }
       for (int j=0;j<n;j++) {
         ptt[j]=2.0*p[j]-pt[j];
         xi[j]=p[j]-pt[j];
