@@ -9,15 +9,16 @@ In short, msmc can infer
 
 as a function of time from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](http://github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
 
-# Compilation
-
-To build and run MSMC, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system.
-
-To build the program, simply run `make` in the directory in which your copy of the source code is located. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
+# Installation
 
 Precompiled versions for Mac and Linux (both 64 bit) can be downloaded via ftp from
 
     ftp://ftp.sanger.ac.uk/pub/users/ss27/msmc/
+
+To build MSMC yourself, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system.
+
+To build the program, simply run `make` in the directory in which your copy of the source code is located. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
+
 
 
 # Usage for population size estimates
