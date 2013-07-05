@@ -15,7 +15,7 @@ To build and run MSMC, the [GNU Scientific Library (GSL)](http://www.gnu.org/sof
 
 To build the program, simply run `make` in the directory in which your copy of the source code is located. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
 
-A precompiled version will be made available for Mac OS X and for Linux. Please check later.
+Precompiled versions for Mac and Linux (both 64 bit) can be downloaded [here](ftp://ftp.sanger.ac.uk/pub/users/ss27/msmc/)
 
 # Usage for population size estimates
 ## Input files
