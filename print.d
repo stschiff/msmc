@@ -35,6 +35,10 @@ size_t generationTime = 30;
 char delimiter = '\t';
 
 void printMain(string[] args) {
+  if(args.length == 1) {
+    printHelpMessage();
+    exit(0);
+  }
   try {
     readArgs(args);
   }
@@ -72,14 +76,15 @@ void readArgs(string[] args) {
 }
 
 void printHelpMessage() {
-  stderr.writeln("./jsonToTable [Options] filename
+  stderr.writeln("msmc print [Options] filename
     Options:
-    --what, -w <what>: one of [popSize, mutationRate, recombinationRate, lambda, crossLambda, likelihood]. Default [popSize]
-    --unscaled, -s
-    --mutationRate, -m [ default 1.25e-8 ]
-    --generationTime, -g [ default 30 years ]
-    --years, -y print time in years, not generations (only applied if --unscaled is set)
-    --delimiter, -d");
+    -w, --what: one of [popSize, mutationRate, recombinationRate, lambda, crossLambda, likelihood]. 
+        [default=popSize]
+    -s, --unscaled: use unscaled time estimates, i.e. generations or years
+    -m, --mutationRate: mutation rate per generation per nucleotide per individual [default=1.25e-8]
+    -g, --generationTime: generation time in years [default=30]
+    -y, --years: print time in years, not in generations (only applied if --unscaled is set)
+    -d, --delimiter: delimiter between columns [default=tab]");
 }
 
 void runPopSize() {
