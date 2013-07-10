@@ -23,8 +23,6 @@ The main program can be called via the command `msmc`. It outputs several subcom
 
 # Preparing the input files
 
-## Format
-
 MSMC takes as input several files, one for each chromosome, each with a list of segregating sites, including the number of homozygous called sites between. Here is an example bit of an input file for MSMC:
 
     1   58432	63	TCCC
@@ -76,7 +74,7 @@ where the local estimate of the total branchlength is added to every segregating
 
 We can now run the main program, `msmc inference`, on our annotated datafile (or in case of 2 haplotypes without the branchlength annotation). To run the program on a machine with 8 processor cores, the minimal command line looks like this:
 
-    msmc inference -m <mutation_rate> -t 8 -R -o <out_file> <input_file1> <input_file2> ...
+    msmc inference -m <mutation_rate> -t 8 --fixedRecombination -o <out_file> <input_file1> <input_file2> ...
 
 It is very important that the mutation rate is the _same_ as was used in the previous step for `msmc branchlength`!
 
@@ -103,7 +101,7 @@ where the first column contains the left boundary of the time intervals, and the
 
 In this case, the data file should consist of the alleles from two subpopulations, e.g. 4 haplotypes with two haplotypes from each subpopulation. The command for running the inference is then
 
-    msmc inference -m <mutation_rate> -t 8 -R -P 0,0,1,1 -o <out_file> <input_file1> <input_file2> ...
+    msmc inference -m <mutation_rate> -t 8 --fixedRecombination -P 0,0,1,1 -o <out_file> <input_file1> <input_file2> ...
 
 where the flag `-P 0,0,1,1` specifies that the four alleles are sampled from two subpopulations `0` and `1`.
 
