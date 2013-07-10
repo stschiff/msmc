@@ -66,12 +66,14 @@ void main(string[] args) {
 void exitWithHelpMessage() {
   writeln("Usage:
 msmc inference - infer population size history and migration patterns from multiple haplotypes
-msmc expectation - carry out only one expectation step (forward-backward)
-msmc maximization - carry out only one maximization step
 msmc branchlengh - annotated a datafile with estimates of the local total branch length
 msmc stats - measure diversity stats in multiple datafiles
-msmc decode - output the posterior probability of each state locally
-msmc print - print various results from inference json output");
+msmc print - print various results from inference json output
+
+Undocumented subprograms (mainly for debug use)
+msmc expectation - carry out only one expectation step (forward-backward)
+msmc maximization - carry out only one maximization step
+msmc decode - output the posterior probability of each state locally");
   exit(0);
 }
   

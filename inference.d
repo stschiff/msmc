@@ -63,25 +63,31 @@ size_t hmmStrideWidth = 1000;
 
 auto helpString = "Usage: msmc inference [options] <datafiles>
   Options:
-    -i, --maxIterations=<size_t> : number of EM-iterations [=20]
-    -o, --outFileName=<string> : file to write results to [=/dev/null]
-    -m, --mutationRate=<double> : scaled mutation rate to use
-    -r, --recombinationRate=<double> : scaled recombination rate to begin with [by default set to mutationRate / 4]
+    -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
+    -o, --outFileName=<string> : file to write results to, gets updated every iteration, but includes all previous 
+          iterations [default=/dev/null]
+    -m, --mutationRate=<double> : mutation rate, scaled by 2N. In case of more than two haplotypes, this needs to be 
+          the same as was used in running \"msmc branchlength\".
+    -r, --recombinationRate=<double> : recombination rate, scaled by 2N, to begin with
+          [by default set to mutationRate / 4]. Note that recombination rate inference does not behave very well for 
+          more than two haplotypes. Using the -R option is recommended for more than 2 haplotypes.
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
-    -p, --timeSegmentPattern=<string> : pattern of fixed segments [=10*1+15*2]
-    -T, --nrTtotSegments=<size_t> : number of discrete values of Ttot [=10]
+    -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
+    -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [default=10]
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
-          number of haplotypes inferred from first input file)
-    -v, --verbose: write also transition matrices
+          number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
+          coming from each subpopulation, set this to 0,0,1,1
+    -R, --fixedRecombination : keep recombination rate fixed [not set by default]
+    
+    Debug Options:
+    -v, --verbose: write out also the transition matrices
     --memory: output an estimate for the memory needed and exit
-    --naiveImplementation: use naive HMM implementation (testing purpose only)
+    --naiveImplementation: use naive HMM implementation
     --demographyFiles=<string>: initialize with previous msmc results. This setting must be given once for each 
               subpopulation, as specified in the -P setting. This also overrides the set mutationRate (-m), and the 
-              recombination rate (-r) and takes it from the first 
-              given demography file
+              recombination rate (-r) and takes it from the first given demography file
     --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed
-    --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [=1000]
-    --fixedRecombination : keep recombination rate fixed";
+    --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [=1000]";
 
 void inferenceMain(string[] args) {
   try {
@@ -135,7 +141,7 @@ void parseCommandLine(string[] args) {
       "demographyFiles", &demographyFiles,
       "hmmStrideWidth", &hmmStrideWidth,
       "fixedPopSize", &fixedPopSize,
-      "fixedRecombination", &fixedRecombination
+      "fixedRecombination|R", &fixedRecombination
   );
   if(nrThreads)
     std.parallelism.defaultPoolThreads(nrThreads);
