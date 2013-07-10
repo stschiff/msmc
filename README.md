@@ -23,6 +23,7 @@ The main program can be called via the command `msmc`. It outputs several subcom
 
 # Preparing the input files
 
+## Format 
 MSMC takes as input several files, one for each chromosome, each with a list of segregating sites, including the number of homozygous called sites between. Here is an example bit of an input file for MSMC:
 
     1   58432	63	TCCC
@@ -45,7 +46,7 @@ The four (tab-separated) columns are:
 
 Input files can be generated from BAM files, VCF files and other sources relatively straight forward. Useful scripts can be found in the `tools` directory (in order to run them, the D-compiler must be installed and rdmd somewhere in the path). 
 
-# Estimating the total branchlength
+## Estimating the total branchlength
 
 For the following we need an estimate of the diversity from the input files. A standard estimator for θ(=4Nµ), along with several other statistics can be obtained with the command
 
