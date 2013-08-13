@@ -319,26 +319,34 @@ void printOutput(char[][] consensusSequences) {
   auto nr_called_sites = 0;
   auto nrHaplotypes = 2 * consensusSequences.length;
   size_t[] forced_positions;
-  size_t current_position_index = 0;
+  int current_position_index = 0;
   if(positions_filename.length > 0) {
     forced_positions = readPositions(positions_filename);
     stderr.writeln("read positions: ", forced_positions[0..20]);
   }
   foreach(i; 0 .. consensusSequences[0].length) {
     if(i % 1000000 == 0)
-      stderr.writeln("position ", i);
-    if(hasGap(consensusSequences, i))
-      continue;
-    nr_called_sites += 1;
-    if(hasSNP(consensusSequences, i) || (((forced_positions.length > 0) && (current_position_index < forced_positions.length - 1) && (forced_positions[current_position_index] == i + 1)))) {
-
-      auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
-
-      if((forced_positions.length > 0) && (forced_positions[current_position_index] == i + 1)) {
-        current_position_index += 1;
+      stderr.writeln("position ", i, ", ", current_position_index, ", ", forced_positions[current_position_index]);
+    if(!hasGap(consensusSequences, i))
+      nr_called_sites += 1;
+    if(forced_positions.length == 0) {
+      if(hasSNP(consensusSequences, i) && !hasGap(consensusSequences, i)) {
+        auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
+        writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
+        nr_called_sites = 0;
       }
-      writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
-      nr_called_sites = 0;
+    }
+    else {
+      if((current_position_index < cast(int)forced_positions.length - 1) &&
+         (forced_positions[current_position_index] == i + 1))
+      {
+        current_position_index += 1;
+        if(!hasGap(consensusSequences, i)) {
+          auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
+          writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
+          nr_called_sites = 0;
+        }
+      }
     }
   }
 }

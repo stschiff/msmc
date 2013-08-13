@@ -16,7 +16,7 @@ model/stateVec.d model/stateVecAllocator.d
 all : unittest debug
 
 unittest :
-	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
+	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/usr/lib -odbuild -ofbuild/unittest
 	build/unittest
 
 debug : build/debug/msmc
@@ -24,14 +24,14 @@ debug : build/debug/msmc
 release : build/release/msmc
 
 build/debug/msmc : ${msmc_src}
-	dmd ${msmc_src} -L-lgsl -L-lgslcblas -odbuild -ofbuild/debug/msmc
+	dmd ${msmc_src} -L-lgsl -L-lgslcblas -L-L/usr/lib -odbuild -ofbuild/debug/msmc
 
 build/release/msmc : ${msmc_src}
 	dmd ${msmc_src} -O -release -inline /usr/lib/libgsl.a /usr/lib/libgslcblas.a -odbuild -ofbuild/release/msmc
 
 testcoverage :
 	mkdir -p code_coverage
-	dmd -unittest -cov ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
+	dmd -unittest -cov ${unittest_src} -L-lgsl -L-lgslcblas -L-L/usr/lib -odbuild -ofbuild/unittest
 	build/unittest
 	mv *.lst code_coverage/
 
