@@ -90,10 +90,11 @@ void readArguments(string[] args) {
 
 static void displayHelpMessageAndExit() {
   stderr.writeln("Usage: msmc branchlength [options] <datafile>
--n, --nrTimeSegments=<int> : nr of time intervals [=40]
--m, --mutationRate=<double> : scaled mutation rate to use
+-n, --nrTimeSegments=<int> : nr of time intervals [default=40]
+-m, --mutationRate=<double> : mutation rate, scaled by 2N. A recommended value is given by theta/2, where theta 
+      can be computed with \"msmc stats\"
 -t, --nrThreads=<int> : number of threads (defaults to nr of CPUs available)
--r, --recombinationRate=<double> : scaled recombination rate to use [default mutationRate / 4]");
+-r, --recombinationRate=<double> : recombination rate, scaled by 2N [default=mutationRate / 4]");
   exit(0);
 }
   
