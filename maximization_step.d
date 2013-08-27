@@ -26,14 +26,25 @@ import model.msmc_model;
 import model.triple_index;
 import model.triple_index_marginal;
 import powell;
+import logger;
 
 MSMCmodel getMaximization(double[][] eMat, MSMCmodel params, in size_t[] timeSegmentPattern, bool fixedPopSize,
                           bool fixedRecombination)
 {
   auto minFunc = new MinFunc(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
+
   auto powell = new Powell!MinFunc(minFunc, true);
   auto x = minFunc.initialValues();
-  auto xNew = powell.minimize(x);
+  powell.init(x);  
+  double[] xNew;
+  while(powell.iter < 200 && !powell.finished()) {
+    logInfo(format("  * [%s/200(max)] Maximization Step\r", powell.iter));
+    xNew = powell.step();
+    if(powell.iter == 200) {
+      logInfo("WARNING: Powell's maximization method exceeding 200 iterations. Taking best value as maximum.");
+    }
+  }
+  logInfo("\n");
   return minFunc.makeParamsFromVec(xNew);
 }
 

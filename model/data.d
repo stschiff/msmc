@@ -171,8 +171,6 @@ SegSite_t[] readSegSites(string filename) {
   // if no alleles are given, assume M=2 and "01"
   // alleles can be given as comma-separated list of alternative alleles
   
-  stderr.writeln("reading data from file: ", filename);
-  
   SegSite_t[] ret;
 
   auto M = getNrHaplotypesFromFile(filename);

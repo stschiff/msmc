@@ -51,7 +51,6 @@ void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
   auto propagationCore = buildPropagationCore(params);
   auto msmc_hmm = buildHMM(inputData, propagationCore);
     
-  stderr.writeln("running forward");
   msmc_hmm.runForward();
   
   auto forwardState = propagationCore.newForwardState();
@@ -62,7 +61,7 @@ void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
     msmc_hmm.getBackwardState(backwardState, inputData[dataIndex].pos);
     double ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(0, 1.0);
     auto max = forwardState.vec[0] * backwardState.vec[0];
-    foreach(i; 0 .. nrTimeSegments) {
+    foreach(i; 0 .. params.nrTimeIntervals) {
       auto p = forwardState.vec[i] * backwardState.vec[i];
       if(p > max) {
         max = p;
@@ -70,7 +69,7 @@ void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
         ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(i, 1.0);
       }
     }
-    inputData[dataIndex].i_tTot = params.tTotIntervals.findIntervalForTime(ttot);
+    inputData[dataIndex].i_Ttot = params.tTotIntervals.findIntervalForTime(ttot);
   }
 }
   
@@ -83,7 +82,6 @@ private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
   auto boundaries = TimeIntervals.getQuantileBoundaries(internalNrSegments, expectedTtot / 2.0);
   auto model = new MSMCmodel(params.mutationRate, params.recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1);
 
-  stderr.writeln("generating propagation core");
   auto propagationCore = new PropagationCoreFast(model, 1000);
   return propagationCore;
 }
@@ -97,6 +95,5 @@ private MSMC_hmm buildHMM(SegSite_t[] inputData, PropagationCoreFast propagation
     dummyInputData ~= dummySite;
   }
     
-  stderr.writeln("generating Hidden Markov Model");
   return new MSMC_hmm(propagationCore, dummyInputData);
 }

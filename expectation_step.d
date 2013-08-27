@@ -32,13 +32,13 @@ import model.propagation_core_naiveImpl;
 import model.msmc_model;
 import model.msmc_hmm;
 import model.data;
+import logger;
 
 alias Tuple!(double[][], double) ExpectationResult_t;
 
 ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, size_t hmmStrideWidth,
                                    size_t maxDistance, bool naiveImplementation=false)
 {
-  stderr.writeln("building propagation core");
   PropagationCore propagationCore;
   if(naiveImplementation)
     propagationCore = new PropagationCoreNaive(msmc, maxDistance);
@@ -50,12 +50,15 @@ ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, s
     row[] = 0.0;
   auto logLikelihood = 0.0;
   
+  auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
+    logInfo(format("  * [%s/%s] Expectation Step\r", ++cnt, inputData.length));
     auto result = singleChromosomeExpectation(data, hmmStrideWidth, propagationCore);
     foreach(au; 0 .. msmc.nrMarginals)
       expectationResult[au][] += result[0][au][];
     logLikelihood += result[1];
   }
+  logInfo("\n");
   
   return tuple(expectationResult, logLikelihood);
 }
@@ -65,12 +68,9 @@ ExpectationResult_t singleChromosomeExpectation(in SegSite_t[] data, size_t hmmS
 {
   auto msmc_hmm =  new MSMC_hmm(propagationCore, data);
 
-  stderr.writeln("running forward");
   msmc_hmm.runForward();
-  stderr.writeln("running backward");
   auto exp = msmc_hmm.runBackward(hmmStrideWidth);
   auto logL = msmc_hmm.logLikelihood();
-  stderr.writeln("likelihood: ", logL);
   msmc_hmm.destroy();
   return tuple(exp, logL);
 }

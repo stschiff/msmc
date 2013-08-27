@@ -77,7 +77,6 @@ class MSMC_hmm {
   State_t currentBackwardState, nextBackwardState;
   
   const SegSite_t[] segsites;
-  string logTag;
   double[] scalingFactors;
   const PropagationCore propagationCore;
   StateVecAllocator stateVecAllocator;
@@ -86,11 +85,9 @@ class MSMC_hmm {
   State_t runBackwardDummy;
   bool have_run_forward;
   
-  this(in PropagationCore propagationCore, in SegSite_t[] segsites, string logTag="") {
+  this(in PropagationCore propagationCore, in SegSite_t[] segsites) {
     this.propagationCore = propagationCore;
-    this.logTag = logTag;
     this.maxDistance = propagationCore.maxDistance;
-    stderr.writeln(text(logTag, "loading ", segsites.length, " SNPs"));
     this.segsites = chop_segsites(segsites, maxDistance);
     this.L = this.segsites.length;
     this.hmmStrideWidth = hmmStrideWidth;
@@ -98,7 +95,6 @@ class MSMC_hmm {
     scalingFactors = new double[L];
     scalingFactors[] = 0.0;
     
-    stderr.writeln(text(logTag, "allocating memory for ", L, " forward variables"));
     auto stateSize = propagationCore.forwardStateSize;
     stateVecAllocator = new StateVecAllocator(L * stateSize);
     forwardStates = new State_t[L];
@@ -316,9 +312,7 @@ unittest {
   
   auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, data);
   auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, data);
-  stderr.writeln("fast forward");
   msmc_hmm_fast.runForward();
-  stderr.writeln("naive forward");
   msmc_hmm_naive.runForward();
   
   
@@ -372,9 +366,7 @@ unittest {
     assert(approxEqual(sum_f, 1.0, lvl, 0.0), text(sum_f));
     assert(approxEqual(sum_n, 1.0, lvl, 0.0), text(sum_n));
   }
-  stderr.writeln("fast backward");
   auto expec = msmc_hmm_fast.runBackward();
-  stderr.writeln("naive backward");
   auto expec_n = msmc_hmm_naive.runBackward();
   foreach(alpha; 0 .. params.nrTimeIntervals) {
     foreach(beta; 0 .. params.nrTimeIntervals) {

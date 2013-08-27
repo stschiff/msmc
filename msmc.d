@@ -34,6 +34,8 @@ import model.data;
 import model.msmc_model;
 import expectation_step;
 import maximization_step;
+import logger;
+import branchlength;
 
 auto maxIterations = 20UL;
 double mutationRate;
@@ -43,7 +45,7 @@ auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 
 uint nrThreads;
 auto nrTtotSegments = 10UL;
 auto verbose = false;
-auto outFilePrefix;
+string outFilePrefix;
 auto memory = false;
 auto naiveImplementation = false;
 auto fixedPopSize = false;
@@ -82,9 +84,6 @@ void main(string[] args) {
     stderr.writeln("error in parsing command line: ", e.msg);
     exit(0);
   }
-  if(subpopLabels.length == 0)
-    inferDefaultSubpopLabels();
-  
   run();
 }
 
@@ -106,7 +105,7 @@ void parseCommandLine(string[] args) {
   }
 
   void handleSubpopLabelsString(string option, string subpopLabelsString) {
-    enforce(match(arrayString, r"^\d+[,\d+]+"), text("illegal array string: ", subpopLabelsString));
+    enforce(match(subpopLabelsString, r"^\d+[,\d+]+"), text("illegal array string: ", subpopLabelsString));
     auto splitted = std.string.split(subpopLabelsString, ",");
     subpopLabels = map!"to!size_t(a)"(splitted).array();
   }
@@ -140,43 +139,63 @@ void parseCommandLine(string[] args) {
   enforce(args.length > 1, "need at least one input file");
   enforce(hmmStrideWidth > 0, "hmmStrideWidth must be positive");
   inputFileNames = args[1..$];
+  if(subpopLabels.length == 0)
+    inferDefaultSubpopLabels();
+  
+  auto logFileName = outFilePrefix ~ ".log";
+  logger.logFile = File(logFileName, "w");
+  
+  printGlobalParams();
+}
+
+void printGlobalParams() {
+  logInfo(format("maxIterations:       %s\n", maxIterations));
+  logInfo(format("mutationRate:        %s\n", mutationRate));
+  logInfo(format("recombinationRate:   %s\n", recombinationRate));
+  logInfo(format("subpopLabels:        %s\n", subpopLabels));
+  logInfo(format("timeSegmentPattern:  %s\n", timeSegmentPattern));
+  logInfo(format("nrThreads:           %s\n", nrThreads));
+  logInfo(format("nrTtotSegments:      %s\n", nrTtotSegments));
+  logInfo(format("verbose:             %s\n", verbose));
+  logInfo(format("outFilePrefix:       %s\n", outFilePrefix));
+  logInfo(format("naiveImplementation: %s\n", naiveImplementation));
+  logInfo(format("hmmStrideWidth:      %s\n", hmmStrideWidth));
+  logInfo(format("fixedPopSize:        %s\n", fixedPopSize));
+  logInfo(format("fixedRecombination:  %s\n", fixedRecombination));
 }
 
 void inferDefaultSubpopLabels() {
   auto nrHaplotypes = getNrHaplotypesFromFile(inputFileNames[0]);
-  stderr.writeln("found ", nrHaplotypes, " haplotypes in file");
   foreach(i; 0 .. nrHaplotypes)
     subpopLabels ~= 0;
 }
 
 void run() {
   auto nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
-  auto params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, nrTtotSegments);
+  auto params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, 
+                                            nrTtotSegments);
   
-  auto inputData = readInputFiles(inputFileNames);
+  auto inputData = inputFileNames.map!(f => readSegSites(f)).array();
   
-  stderr.writeln("estimating total branchlengths");
+  
+  auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
+    logInfo(format("[%s/%s] estimating total branchlengths\r", ++cnt, inputData.length));
     estimateTotalBranchlengths(data, params);
   }
-  
-  foreach(i, data; inputData) {
-    stderr.writeln("file ", i, ":");
-    foreach(s; data[0 .. 10]) {
-      stderr.writeln(s);
-    }
-  }
+  logInfo("\n");
   
   auto loopFileName = outFilePrefix ~ ".loops.txt";
   
   foreach(iteration; 0 .. maxIterations) {
+    logInfo(format("\n[%s/%s] Baumwelch iteration\n", iteration, maxIterations));
     auto expectationResult = getExpectation(inputData, params, hmmStrideWidth, 1000, naiveImplementation);
+    auto eMat = expectationResult[0];
+    auto logLikelihood = expectationResult[1];
     if(verbose) {
       auto filename = outFilePrefix ~ format(".loop_%s.expectationMatrix.txt", iteration);
       printMatrix(filename, eMat);
     }
-    auto eMat = expectationResult[0];
-    auto logLikelihood = expectationResult[1];
     auto newParams = getMaximization(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
     printLoop(loopFileName, newParams, logLikelihood);
     params = newParams;
@@ -205,17 +224,17 @@ void printFinal(string filename, MSMCmodel params) {
   auto f = File(filename, "w");
   f.write("time_index\ttime_boundary");
   auto nrSubpopPairs = params.nrSubpopulations * (params.nrSubpopulations + 1) / 2;
-  foreach(i; 0 .. nrSubpopulations) {
-    foreach(j; i .. nrSubpopulations) {
-      f.write("\tlambda_%s%s", i, j);
+  foreach(i; 0 .. params.nrSubpopulations) {
+    foreach(j; i .. params.nrSubpopulations) {
+      f.writef("\tlambda_%s%s", i, j);
     }
   }
   f.write("\n");
   auto lambdaIndex = 0;
   foreach(i; 0 .. params.nrTimeIntervals) {
-    f.write("%s\t%s", i, params.timeIntervals.rightBoundary(i));
+    f.writef("%s\t%s", i, params.timeIntervals.rightBoundary(i));
     foreach(j; 0 .. nrSubpopPairs) {
-      f.write("\t%s", params.lambdaVec[lambdaIndex++]);
+      f.writef("\t%s", params.lambdaVec[lambdaIndex++]);
     }
     f.write("\n");
   }
