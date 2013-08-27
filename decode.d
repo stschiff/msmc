@@ -36,7 +36,7 @@ string inputFileName;
 size_t nrHaplotypes;
 uint nrThreads;
 
-void decodeMain(string[] args) {
+void main(string[] args) {
   try {
     parseCommandlineArgs(args);
   }

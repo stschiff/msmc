@@ -34,7 +34,7 @@ double mu = 1.25e-8;
 size_t generationTime = 30;
 char delimiter = '\t';
 
-void printMain(string[] args) {
+void main(string[] args) {
   if(args.length == 1) {
     printHelpMessage();
     exit(0);

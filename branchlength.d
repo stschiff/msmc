@@ -42,84 +42,24 @@ import model.coalescence_rate;
 import model.rate_integrator;
 import model.propagation_core_fastImpl;
 import model.data;
-import utils;
 import expectation_step;
 
-double recombinationRate;
-double mutationRate;
-size_t nrHaplotypes;
-string inputFileName;
-size_t nrTimeSegments = 40;
-uint nrThreads;
+size_t internalNrSegments = 40;
 
-void branchlengthMain(string[] args) {
-  parseCommandLine(args);
-  run();
-}
+void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
 
-void parseCommandLine(string[] args) {
-  if(args.length == 1)
-    displayHelpMessageAndExit();
-  try {
-    readArguments(args);
-  }
-  catch(Exception e) {
-    stderr.writeln("error in parsing command line: ", e.msg);
-    displayHelpMessageAndExit();
-  }
-}
-  
-void readArguments(string[] args) {
-  getopt(args,
-      std.getopt.config.caseSensitive,
-      "mutationRate|m", &mutationRate,
-      "recombinationRate|r", &recombinationRate,
-      "nrThreads|t", &nrThreads,
-      "nrTimeSegments|n", &nrTimeSegments
-  );
-  if(nrThreads) {
-    std.parallelism.defaultPoolThreads(nrThreads);
-  }
-  enforce(!isNaN(mutationRate), "need to set mutation rate");
-  inputFileName = args[1];
-  nrHaplotypes = getNrHaplotypesFromFile(inputFileName);
-  if(isNaN(recombinationRate))
-    recombinationRate = mutationRate / 4.0;
-  stderr.writeln("found ", nrHaplotypes, " Haplotypes in file");
-}
-
-static void displayHelpMessageAndExit() {
-  stderr.writeln("Usage: msmc branchlength [options] <datafile>
--n, --nrTimeSegments=<int> : nr of time intervals [default=40]
--m, --mutationRate=<double> : mutation rate, scaled by 2N. A recommended value is given by theta/2, where theta 
-      can be computed with \"msmc stats\"
--t, --nrThreads=<int> : number of threads (defaults to nr of CPUs available)
--r, --recombinationRate=<double> : recombination rate, scaled by 2N [default=mutationRate / 4]");
-  exit(0);
-}
-  
-void run() {
-  auto propagationCore = buildPropagationCore();
-  auto msmc_hmm = buildHMM(propagationCore);
+  auto propagationCore = buildPropagationCore(params);
+  auto msmc_hmm = buildHMM(inputData, propagationCore);
     
   stderr.writeln("running forward");
   msmc_hmm.runForward();
   
-  auto f = File(inputFileName, "r");
   auto forwardState = propagationCore.newForwardState();
   auto backwardState = propagationCore.newBackwardState();
 
-  string[] lines;
-  foreach(line; f.byLine()) {
-    lines ~= strip(line).idup;
-  }
-  string[] newLines;
-  foreach_reverse(lineIndex; 0 .. lines.length) {
-    auto fields = split(lines[lineIndex].dup);
-    auto pos = to!int(fields[1]);
-    
-    msmc_hmm.getForwardState(forwardState, pos);
-    msmc_hmm.getBackwardState(backwardState, pos);
+  foreach_reverse(dataIndex; 0 .. inputData.length) {
+    msmc_hmm.getForwardState(forwardState, inputData[dataIndex].pos);
+    msmc_hmm.getBackwardState(backwardState, inputData[dataIndex].pos);
     double ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(0, 1.0);
     auto max = forwardState.vec[0] * backwardState.vec[0];
     foreach(i; 0 .. nrTimeSegments) {
@@ -130,34 +70,33 @@ void run() {
         ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(i, 1.0);
       }
     }
-    newLines ~= lines[lineIndex] ~ text("\t", ttot);
+    inputData[dataIndex].i_tTot = params.tTotIntervals.findIntervalForTime(ttot);
   }
-  foreach_reverse(line; newLines)
-    writeln(line);
 }
   
-private PropagationCoreFast buildPropagationCore() {
-  auto lambdaVec = new double[nrTimeSegments];
+private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
+  auto lambdaVec = new double[internalNrSegments];
   lambdaVec[] = 1.0;
   // the factor 2 is just part of the formula for the mean total branch length.
-  auto expectedTtot = 2.0 * TimeIntervals.computeWattersonFactor(nrHaplotypes);
+  auto expectedTtot = 2.0 * TimeIntervals.computeWattersonFactor(params.nrHaplotypes);
   // the next factor 2 fakes a two haplotype system with the same total branch length (every branch gets half)
-  auto boundaries = TimeIntervals.getQuantileBoundaries(nrTimeSegments, expectedTtot / 2.0);
-  auto model = new MSMCmodel(mutationRate, recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1);
+  auto boundaries = TimeIntervals.getQuantileBoundaries(internalNrSegments, expectedTtot / 2.0);
+  auto model = new MSMCmodel(params.mutationRate, params.recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1);
 
   stderr.writeln("generating propagation core");
   auto propagationCore = new PropagationCoreFast(model, 1000);
   return propagationCore;
 }
   
-private MSMC_hmm buildHMM(PropagationCoreFast propagationCore) {
-  stderr.writeln("loading file ", inputFileName);
-  auto segsites = readSegSites(inputFileName, nrHaplotypes, propagationCore.msmc.tTotIntervals);
-  foreach(ref s; segsites) {
+private MSMC_hmm buildHMM(SegSite_t[] inputData, PropagationCoreFast propagationCore) {
+  SegSite_t[] dummyInputData;
+  foreach(s; inputData) {
+    auto dummySite = s.dup;
     if(s.obs.length > 1 || s.obs[0] > 1)
-      s.obs = [2];
+      dummySite.obs = [2];
+    dummyInputData ~= dummySite;
   }
     
   stderr.writeln("generating Hidden Markov Model");
-  return new MSMC_hmm(propagationCore, segsites);
+  return new MSMC_hmm(propagationCore, dummyInputData);
 }

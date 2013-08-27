@@ -18,62 +18,205 @@
  */
  
 import std.stdio;
+import std.math;
+import std.string;
+import std.conv;
+import std.getopt;
+import std.parallelism;
 import std.algorithm;
 import std.array;
-import std.conv;
+import std.file;
+import std.typecons;
+import std.regex;
+import std.exception;
 import std.c.stdlib;
-import inference;
-import expectation;
-import maximization;
-import stats;
-import branchlength;
-import decode;
-import print;
+import model.data;
+import model.msmc_model;
+import expectation_step;
+import maximization_step;
+
+auto maxIterations = 20UL;
+double mutationRate;
+double recombinationRate;
+size_t[] subpopLabels;
+auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
+uint nrThreads;
+auto nrTtotSegments = 10UL;
+auto verbose = false;
+auto outFilePrefix;
+auto memory = false;
+auto naiveImplementation = false;
+auto fixedPopSize = false;
+auto fixedRecombination = false;
+string[] inputFileNames;
+size_t hmmStrideWidth = 1000;
+
+auto helpString = "Usage: msmc [options] <datafiles>
+  Options:
+    -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
+    -o, --outFilePrefix=<string> : file prefix to use for all output files
+    -m, --mutationRate=<double> : mutation rate, scaled by 2N. In case of more than two haplotypes, this needs to be 
+          the same as was used in running \"msmc branchlength\".
+    -r, --recombinationRate=<double> : recombination rate, scaled by 2N, to begin with
+          [by default set to mutationRate / 4]. Note that recombination rate inference does not behave very well for 
+          more than two haplotypes. Using the -R option is recommended for more than 2 haplotypes.
+    -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
+    -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
+    -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [default=10]
+    -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
+          number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
+          coming from each subpopulation, set this to 0,0,1,1
+    -R, --fixedRecombination : keep recombination rate fixed [not set by default]
+    
+    Debug Options:
+    -v, --verbose: write out also the transition matrices
+    --naiveImplementation: use naive HMM implementation
+    --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed
+    --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [=1000]";
 
 void main(string[] args) {
-  if(args.length < 2) {
-    exitWithHelpMessage();
+  try {
+    parseCommandLine(args);
   }
-  switch(args[1]) {
-    case "inference":
-    inferenceMain(args[1..$]);
-    break;
-    case "branchlength":
-    branchlengthMain(args[1..$]);
-    break;
-    case "stats":
-    StatsApplication.runWithArgs(args[1..$]);
-    break;
-    case "expectation":
-    ExpectationApplication.runWithArgs(args[1..$]);
-    break;
-    case "maximization":
-    MaximizationApplication.runWithArgs(args[1..$]);
-    break;
-    case "decode":
-    decodeMain(args[1..$]);
-    break;
-    case "print":
-    printMain(args[1..$]);
-    break;
-    default:
-    writeln("subprogram ", args[1], " not recognized");
-    exitWithHelpMessage();
-    break;
+  catch(Exception e) {
+    stderr.writeln("error in parsing command line: ", e.msg);
+    exit(0);
   }
-}
-
-void exitWithHelpMessage() {
-  writeln("Usage:
-msmc inference - infer population size history and migration patterns from multiple haplotypes
-msmc branchlengh - annotated a datafile with estimates of the local total branch length
-msmc stats - measure diversity stats in multiple datafiles
-msmc print - print various results from inference json output
-
-Undocumented subprograms (mainly for debug use)
-msmc expectation - carry out only one expectation step (forward-backward)
-msmc maximization - carry out only one maximization step
-msmc decode - output the posterior probability of each state locally");
-  exit(0);
-}
+  if(subpopLabels.length == 0)
+    inferDefaultSubpopLabels();
   
+  run();
+}
+
+void parseCommandLine(string[] args) {
+  
+  void displayHelpMessageAndExit() {
+    stderr.writeln(helpString);
+    exit(0);
+  }
+  void handleTimeSegmentPatternString(string option, string patternString) {
+    enforce(match(patternString, r"^\d+\*\d+[\+\d+\*\d+]*"), text("illegal timeSegmentPattern: ", patternString));
+    timeSegmentPattern.length = 0;
+    foreach(product; std.string.split(patternString, "+")) {
+      auto pair = array(map!"to!size_t(a)"(std.string.split(product, "*")));
+      foreach(i; 0 .. pair[0]) {
+        timeSegmentPattern ~= pair[1];
+      }
+    }
+  }
+
+  void handleSubpopLabelsString(string option, string subpopLabelsString) {
+    enforce(match(arrayString, r"^\d+[,\d+]+"), text("illegal array string: ", subpopLabelsString));
+    auto splitted = std.string.split(subpopLabelsString, ",");
+    subpopLabels = map!"to!size_t(a)"(splitted).array();
+  }
+  
+  if(args.length == 1) {
+    displayHelpMessageAndExit();
+  }
+
+  getopt(args,
+      std.getopt.config.caseSensitive,
+      "maxIterations|i", &maxIterations,
+      "mutationRate|m", &mutationRate,
+      "recombinationRate|r", &recombinationRate,
+      "subpopLabels|P", &handleSubpopLabelsString,
+      "timeSegmentPattern|p", &handleTimeSegmentPatternString,
+      "nrThreads|t", &nrThreads,
+      "nrTtotSegments|T", &nrTtotSegments,
+      "verbose|v", &verbose,
+      "outFilePrefix|o", &outFilePrefix,
+      "help|h", &displayHelpMessageAndExit,
+      "naiveImplementation", &naiveImplementation,
+      "hmmStrideWidth", &hmmStrideWidth,
+      "fixedPopSize", &fixedPopSize,
+      "fixedRecombination|R", &fixedRecombination
+  );
+  if(nrThreads)
+    std.parallelism.defaultPoolThreads(nrThreads);
+  enforce(!isNaN(mutationRate), "need to set mutation rate");
+  if(isNaN(recombinationRate))
+    recombinationRate = mutationRate / 4.0;
+  enforce(args.length > 1, "need at least one input file");
+  enforce(hmmStrideWidth > 0, "hmmStrideWidth must be positive");
+  inputFileNames = args[1..$];
+}
+
+void inferDefaultSubpopLabels() {
+  auto nrHaplotypes = getNrHaplotypesFromFile(inputFileNames[0]);
+  stderr.writeln("found ", nrHaplotypes, " haplotypes in file");
+  foreach(i; 0 .. nrHaplotypes)
+    subpopLabels ~= 0;
+}
+
+void run() {
+  auto nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
+  auto params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, nrTtotSegments);
+  
+  auto inputData = readInputFiles(inputFileNames);
+  
+  stderr.writeln("estimating total branchlengths");
+  foreach(data; taskPool.parallel(inputData)) {
+    estimateTotalBranchlengths(data, params);
+  }
+  
+  foreach(i, data; inputData) {
+    stderr.writeln("file ", i, ":");
+    foreach(s; data[0 .. 10]) {
+      stderr.writeln(s);
+    }
+  }
+  
+  auto loopFileName = outFilePrefix ~ ".loops.txt";
+  
+  foreach(iteration; 0 .. maxIterations) {
+    auto expectationResult = getExpectation(inputData, params, hmmStrideWidth, 1000, naiveImplementation);
+    if(verbose) {
+      auto filename = outFilePrefix ~ format(".loop_%s.expectationMatrix.txt", iteration);
+      printMatrix(filename, eMat);
+    }
+    auto eMat = expectationResult[0];
+    auto logLikelihood = expectationResult[1];
+    auto newParams = getMaximization(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
+    printLoop(loopFileName, newParams, logLikelihood);
+    params = newParams;
+  }
+  
+  auto finalName = outFilePrefix ~ ".final.txt";
+  printFinal(finalName, params);
+}
+
+void printMatrix(string filename, double[][] eMat) {
+  auto f = File(filename, "w");
+  foreach(row; eMat) {
+    foreach(val; row) {
+      f.writef("%s\t", val);
+    }
+    f.write("\n");
+  }
+}
+
+void printLoop(string filename, MSMCmodel params, double logLikelihood) {
+  auto f = File(filename, "a");
+  f.writefln("%s\t%s\t%s", params.recombinationRate, logLikelihood, params.lambdaVec.map!"text(a)".join(",").array());
+}
+
+void printFinal(string filename, MSMCmodel params) {
+  auto f = File(filename, "w");
+  f.write("time_index\ttime_boundary");
+  auto nrSubpopPairs = params.nrSubpopulations * (params.nrSubpopulations + 1) / 2;
+  foreach(i; 0 .. nrSubpopulations) {
+    foreach(j; i .. nrSubpopulations) {
+      f.write("\tlambda_%s%s", i, j);
+    }
+  }
+  f.write("\n");
+  auto lambdaIndex = 0;
+  foreach(i; 0 .. params.nrTimeIntervals) {
+    f.write("%s\t%s", i, params.timeIntervals.rightBoundary(i));
+    foreach(j; 0 .. nrSubpopPairs) {
+      f.write("\t%s", params.lambdaVec[lambdaIndex++]);
+    }
+    f.write("\n");
+  }
+}

@@ -27,40 +27,14 @@ import model.triple_index;
 import model.triple_index_marginal;
 import powell;
 
-class MaximizationStep {
-  
-  const double[][] expectationResult;
-  double[][] modelTransitions;
-  const size_t[] timeSegmentPattern;
-  MSMCmodel initialParams; 
-  MSMCmodel updatedParams;
-  
-  bool fixedPopSize, fixedRecombination;
-  
-  this(in double[][] expectationResult, MSMCmodel initialParams, in size_t[] timeSegmentPattern) {
-    enforce(reduce!"a+b"(timeSegmentPattern) == initialParams.nrTimeIntervals);
-    this.expectationResult = expectationResult;
-    this.initialParams = initialParams;
-    this.timeSegmentPattern = timeSegmentPattern;
-  }
-  
-  void run(bool verboseMaximization) {
-    auto minFunc = new MinFunc(expectationResult, initialParams, timeSegmentPattern, fixedPopSize, fixedRecombination);
-    auto powell = new Powell!MinFunc(minFunc, verboseMaximization);
-    auto x = minFunc.initialValues();
-    auto xNew = powell.minimize(x);
-    updatedParams = minFunc.makeParamsFromVec(xNew);
-    modelTransitions = minFunc.modelTransitions(updatedParams);
-  }
-  
-  double[][] getModelTransitions() {
-    return modelTransitions;
-  }
-  
-  MSMCmodel getUpdatedParams() {
-    return updatedParams;
-  }
-  
+MSMCmodel getMaximization(double[][] eMat, MSMCmodel params, in size_t[] timeSegmentPattern, bool fixedPopSize,
+                          bool fixedRecombination)
+{
+  auto minFunc = new MinFunc(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
+  auto powell = new Powell!MinFunc(minFunc, true);
+  auto x = minFunc.initialValues();
+  auto xNew = powell.minimize(x);
+  return minFunc.makeParamsFromVec(xNew);
 }
 
 class MinFunc {
@@ -294,9 +268,7 @@ unittest {
   foreach(i; 0 .. 12) foreach(j; 0 .. 12)
     expectationMatrix[i][j] = params.transitionRate.transitionProbabilityMarginal(i, j) * uniform(700, 1300);
   auto timeSegmentPattern = [2UL, 2];
-  auto maximizationStep = new MaximizationStep(expectationMatrix, params, timeSegmentPattern);
-  maximizationStep.run(false);
-  auto updatedParams = maximizationStep.getUpdatedParams();
+  auto updatedParams = getMaximization(expectationMatrix, params, timeSegmentPattern, false, true);
     
   writeln("Maximization test: actual params: ", params);
   writeln("Maximization test: inferred params: ", updatedParams);

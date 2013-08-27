@@ -38,7 +38,6 @@ import powell;
 import brent;
 import maximization_step;
 import expectation_step;
-import utils;
 import amoeba;
 
 void main() {

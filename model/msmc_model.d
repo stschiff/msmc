@@ -29,7 +29,6 @@ import model.time_intervals;
 import model.emission_rate;
 import model.transition_rate;
 import model.coalescence_rate;
-import utils;
 
 class MSMCmodel {
   const EmissionRate emissionRate;
@@ -39,56 +38,6 @@ class MSMCmodel {
   const TimeIntervals tTotIntervals;
   const PiecewiseConstantCoalescenceRate coal;
 
-  static MSMCmodel fromFile(string filename) {
-    return MSMCmodel.fromJSON(parseJSON(readText(filename)));
-  }
-  
-  static MSMCmodel overrideDemographies(MSMCmodel msmc, string[] filenames) {
-    enforce(filenames.length == msmc.nrSubpopulations, "to fix the demographies of all populations, I need as many msmc results as there are populations");
-    double newMutationRate, newRecombinationRate;
-    auto newLambdaVec = new double[msmc.nrMarginals];
-    newLambdaVec[] = 1.0;
-    foreach(i; 0 .. msmc.nrSubpopulations) {
-      auto json = parseJSON(readText(filenames[i]));
-      auto demographySettings = MSMCmodel.fromJSON(json["results"].array[$ - 1]["updatedParams"]);
-      enforce(demographySettings.nrSubpopulations == 1, "given demography files must be for exactly one population");
-      if(i == 0) {
-        newMutationRate = demographySettings.mutationRate;
-        newRecombinationRate = demographySettings.recombinationRate;
-      }
-      auto otherN0overN0 = demographySettings.mutationRate / newMutationRate;
-      double[2][] functionValues;
-      foreach(j; 0 .. demographySettings.nrTimeIntervals) {
-        auto t = demographySettings.timeIntervals.leftBoundary(j) * otherN0overN0;
-        auto lambda = demographySettings.lambdaVec[j] / otherN0overN0;
-        functionValues ~= [t, lambda];
-      }
-      auto lambdaVecForSubpop = convertPiecewiseFunctions(msmc.timeIntervals, functionValues);
-      
-      foreach(au; 0 .. msmc.nrMarginals) {
-        auto aij = msmc.marginalIndex.getIndexFromMarginalIndex(au);
-        auto triple = msmc.marginalIndex.getTripleFromIndex(aij);
-        auto p1 = msmc.subpopLabels[triple.ind1];
-        auto p2 = msmc.subpopLabels[triple.ind2];
-        if(p1 == i && p2 == i) {
-          newLambdaVec[au] = lambdaVecForSubpop[triple.time];
-        }
-      }
-    }
-    return new MSMCmodel(newMutationRate, newRecombinationRate, msmc.subpopLabels, newLambdaVec, msmc.timeIntervals.boundaries[0 .. $ - 1], msmc.nrTtotIntervals);
-  }
-  
-  static MSMCmodel fromJSON(JSONValue json) {
-    stderr.writeln("creating MSMCmodel from JSON:");
-    auto mutationRate = utils.fromJSON!double(json["mutationRate"]);
-    auto recombinationRate = utils.fromJSON!double(json["recombinationRate"]);
-    auto subpopLabels = utils.fromJSON!(size_t[])(json["subpopLabels"]);
-    auto lambdaVec = utils.fromJSON!(double[])(json["lambdaVec"]);
-    auto timeBoundaries = utils.fromJSON!(double[])(json["timeIntervals"]);
-    auto nrTtotIntervals = utils.fromJSON!size_t(json["nrTtotSegments"]);
-    return new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, timeBoundaries, nrTtotIntervals);
-  }
-  
   this(double mutationRate, double recombinationRate, in size_t[] subpopLabels, in double[] lambdaVec, in double[] timeBoundaries, size_t nrTtotIntervals) {
     auto nrHaplotypes = cast(size_t)subpopLabels.length;
     emissionRate = new EmissionRate(nrHaplotypes, mutationRate);
@@ -172,18 +121,6 @@ class MSMCmodel {
     return tTotIntervals.nrIntervals;
   }
   
-  
-  JSONValue toJSON() const {
-    auto json = JSONValue();
-    json.type = JSON_TYPE.OBJECT;
-    json.object["mutationRate"] = utils.makeJSON(mutationRate);
-    json.object["recombinationRate"] = utils.makeJSON(recombinationRate);
-    json.object["timeIntervals"] = utils.makeJSON(timeIntervals.boundaries[0..$ - 1]);
-    json.object["nrTtotSegments"] = utils.makeJSON(nrTtotIntervals);
-    json.object["lambdaVec"] = utils.makeJSON(lambdaVec);
-    json.object["subpopLabels"] = utils.makeJSON(subpopLabels);
-    return json;
-  }
 }
 
 version(unittest) {
@@ -199,33 +136,33 @@ version(unittest) {
   import std.math;
 }
 
-unittest {
-  writeln("testing ModelParams.toJSON");
-  auto p = makeTestParams();
-  auto json = p.toJSON();
-  assert(approxEqual(json["mutationRate"].floating, 0.01, 1.0e-8, 0.0));
-  assert(approxEqual(json["recombinationRate"].floating, 0.001, 1.0e-8, 0.0));
-  assert(json["timeIntervals"][0].floating == 0.0);
-  assert(json["timeIntervals"][1].floating > 0.0);
-  assert(json["timeIntervals"][2].floating > json["timeIntervals"][1].floating);
-  assert(json["nrTtotSegments"].integer == 8);
-  auto lambdaVec = [1.2, 3.4, 5.6];
-  auto subpopLabels = [0U,0,0];
-  foreach(i; 0 .. 3)
-    assert(approxEqual(json["lambdaVec"][i].floating, lambdaVec[i], 1.0e-12, 0.0));
-  foreach(i; 0 .. 3)
-    assert(json["subpopLabels"][i].integer == subpopLabels[i]);
-}
-
-unittest {
-  writeln("testing ModelParams.fromJSON");
-  auto p = makeTestParams();
-  auto json = p.toJSON();
-  auto pNew = MSMCmodel.fromJSON(json);
-  assert(pNew.lambdaVec == p.lambdaVec);
-  assert(pNew.mutationRate == p.mutationRate);
-  assert(pNew.recombinationRate == p.recombinationRate);
-  assert(pNew.timeIntervals.boundaries == p.timeIntervals.boundaries);
-  assert(pNew.nrTtotIntervals == p.nrTtotIntervals);
-  assert(pNew.subpopLabels == p.subpopLabels);
-}
+// unittest {
+//   writeln("testing ModelParams.toJSON");
+//   auto p = makeTestParams();
+//   auto json = p.toJSON();
+//   assert(approxEqual(json["mutationRate"].floating, 0.01, 1.0e-8, 0.0));
+//   assert(approxEqual(json["recombinationRate"].floating, 0.001, 1.0e-8, 0.0));
+//   assert(json["timeIntervals"][0].floating == 0.0);
+//   assert(json["timeIntervals"][1].floating > 0.0);
+//   assert(json["timeIntervals"][2].floating > json["timeIntervals"][1].floating);
+//   assert(json["nrTtotSegments"].integer == 8);
+//   auto lambdaVec = [1.2, 3.4, 5.6];
+//   auto subpopLabels = [0U,0,0];
+//   foreach(i; 0 .. 3)
+//     assert(approxEqual(json["lambdaVec"][i].floating, lambdaVec[i], 1.0e-12, 0.0));
+//   foreach(i; 0 .. 3)
+//     assert(json["subpopLabels"][i].integer == subpopLabels[i]);
+// }
+// 
+// unittest {
+//   writeln("testing ModelParams.fromJSON");
+//   auto p = makeTestParams();
+//   auto json = p.toJSON();
+//   auto pNew = MSMCmodel.fromJSON(json);
+//   assert(pNew.lambdaVec == p.lambdaVec);
+//   assert(pNew.mutationRate == p.mutationRate);
+//   assert(pNew.recombinationRate == p.recombinationRate);
+//   assert(pNew.timeIntervals.boundaries == p.timeIntervals.boundaries);
+//   assert(pNew.nrTtotIntervals == p.nrTtotIntervals);
+//   assert(pNew.subpopLabels == p.subpopLabels);
+// }

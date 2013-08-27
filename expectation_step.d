@@ -31,79 +31,48 @@ import model.propagation_core_fastImpl;
 import model.propagation_core_naiveImpl;
 import model.msmc_model;
 import model.msmc_hmm;
+import model.data;
 
-class ExpectationStep {
-  
-  private const MSMCmodel msmc;
-  private PropagationCore propagationCore;
-  private const string[] fileNames;
-  private size_t hmmStrideWidth;
-  private double[][] expectationResult;
-  private double logLikelihood;
-  
-  this(in string[] fileNames, MSMCmodel msmc, size_t hmmStrideWidth,
-       size_t maxDistance=1000, bool naiveImplementation=false)
-  {
-    enforce(fileNames.length > 0, "need at least one file");
-    enforce(hmmStrideWidth > 0, "need positive hmm stride width");
-    this.msmc = msmc;
-    this.fileNames = fileNames.dup;
-    this.hmmStrideWidth = hmmStrideWidth;
-    stderr.writeln("building propagation core");
-    if(naiveImplementation)
-      propagationCore = new PropagationCoreNaive(msmc, maxDistance);
-    else
-      propagationCore = new PropagationCoreFast(msmc, maxDistance);
-    stderr.writeln("propagation core ready");
-    initResults();
-  }
-  
-  private void initResults() {
-    expectationResult = new double[][](msmc.nrMarginals, msmc.nrMarginals);
-    foreach(ref row; expectationResult)
-      row[] = 0.0;
-    logLikelihood = 0.0;
-  }
-  
-  void run() {
-    foreach(filename; taskPool.parallel(fileNames)) {
-      auto result = singleChromosomeExpectation(filename, hmmStrideWidth, propagationCore);
-      foreach(au; 0 .. msmc.nrMarginals)
-        expectationResult[au][] += result[0][au][];
-      logLikelihood += result[1];
-    }
-  }
-  
-  private static Tuple!(double[][], double)
-  singleChromosomeExpectation(string filename, size_t hmmStrideWidth, in PropagationCore propagationCore)
-  {
-    auto logTag = format("HMM for file %s: ", filename);
-    auto msmc_hmm =  new MSMC_hmm(propagationCore, filename, logTag);
+alias Tuple!(double[][], double) ExpectationResult_t;
 
-    stderr.writeln(logTag ~ "running forward");
-    msmc_hmm.runForward();
-    stderr.writeln(logTag ~ "running backward");
-    auto exp = msmc_hmm.runBackward(hmmStrideWidth);
-    auto logL = msmc_hmm.logLikelihood();
-    stderr.writeln(logTag, "likelihood: ", logL);
-    msmc_hmm.destroy();
-    return tuple(exp, logL);
-  }
-
-  private void cleanup() {
-    propagationCore.destroy();
-    GC.collect();
-    GC.minimize();
+ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, size_t hmmStrideWidth,
+                                   size_t maxDistance, bool naiveImplementation=false)
+{
+  stderr.writeln("building propagation core");
+  PropagationCore propagationCore;
+  if(naiveImplementation)
+    propagationCore = new PropagationCoreNaive(msmc, maxDistance);
+  else
+    propagationCore = new PropagationCoreFast(msmc, maxDistance);
+  
+  auto expectationResult = new double[][](msmc.nrMarginals, msmc.nrMarginals);
+  foreach(ref row; expectationResult)
+    row[] = 0.0;
+  auto logLikelihood = 0.0;
+  
+  foreach(data; taskPool.parallel(inputData)) {
+    auto result = singleChromosomeExpectation(data, hmmStrideWidth, propagationCore);
+    foreach(au; 0 .. msmc.nrMarginals)
+      expectationResult[au][] += result[0][au][];
+    logLikelihood += result[1];
   }
   
-  double[][] getResult() {
-    return expectationResult;
-  }
-  
-  double getLogLikelihood() {
-    return logLikelihood;
-  }
+  return tuple(expectationResult, logLikelihood);
+}
 
+ExpectationResult_t singleChromosomeExpectation(in SegSite_t[] data, size_t hmmStrideWidth,
+                                                in PropagationCore propagationCore)
+{
+  auto msmc_hmm =  new MSMC_hmm(propagationCore, data);
+
+  stderr.writeln("running forward");
+  msmc_hmm.runForward();
+  stderr.writeln("running backward");
+  auto exp = msmc_hmm.runBackward(hmmStrideWidth);
+  auto logL = msmc_hmm.logLikelihood();
+  stderr.writeln("likelihood: ", logL);
+  msmc_hmm.destroy();
+  return tuple(exp, logL);
 }
 
 unittest {
@@ -111,28 +80,26 @@ unittest {
   auto lambdaVec = new double[12];
   lambdaVec[] = 1.0;
   auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4);
-  auto fileNames = ["model/hmm_testData_tMRCA.txt", "model/hmm_testData_tMRCA.txt", "model/hmm_testData_tMRCA.txt"];
-  auto hmmStrideWidth = 100U;
+  auto fileName = "model/hmm_testData.txt";
+  auto data = readSegSites(fileName);
+  auto hmmStrideWidth = 100UL;
+  
+  auto allData = [data, data, data];
   
   std.parallelism.defaultPoolThreads(1U);
-  auto expectationStep = new ExpectationStep(fileNames, msmc, hmmStrideWidth, 100U, true);
-  expectationStep.run();
-  auto resultSingleThreaded = expectationStep.getResult();
+  auto resultSingleThreaded = getExpectation(allData, msmc, hmmStrideWidth, 100UL, true);
   std.parallelism.defaultPoolThreads(2U);
-  expectationStep = new ExpectationStep(fileNames, msmc, hmmStrideWidth, 100U);
-  expectationStep.run();
-  auto resultMultiThreaded = expectationStep.getResult();
-  auto logL = expectationStep.getLogLikelihood();
+  auto resultMultiThreaded = getExpectation(allData, msmc, hmmStrideWidth, 100UL);
    
   auto sumSingleThreaded = 0.0;
   auto sumMultiThreaded = 0.0;
-  foreach(row; resultSingleThreaded) {
+  foreach(row; resultSingleThreaded[0]) {
     foreach(val; row) {
       assert(val >= 0.0);
       sumSingleThreaded += val;
     }
   }
-  foreach(row; resultMultiThreaded) {
+  foreach(row; resultMultiThreaded[0]) {
     foreach(val; row) {
       assert(val >= 0.0);
       sumMultiThreaded += val;

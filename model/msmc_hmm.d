@@ -114,13 +114,6 @@ class MSMC_hmm {
     currentBackwardIndex = L - 1;
   }
 
-  this(in PropagationCore propagationCore, string filename, string logTag="")
-  {
-    stderr.writeln(logTag, "reading data");
-    auto segsites = readSegSites(filename, propagationCore.getMSMC.nrHaplotypes, propagationCore.getMSMC.tTotIntervals);
-    this(propagationCore, segsites, logTag);
-  }
-  
   double logLikelihood() const {
     return scalingFactors.map!log().reduce!"a+b"();
   }
@@ -319,8 +312,10 @@ unittest {
 
   auto nrS = propagationCoreFast.getMSMC.nrStates;
   
-  auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, "model/hmm_testData_tMRCA.txt");
-  auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, "model/hmm_testData_tMRCA.txt");
+  auto data = readSegSites("model/hmm_testData.txt");
+  
+  auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, data);
+  auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, data);
   stderr.writeln("fast forward");
   msmc_hmm_fast.runForward();
   stderr.writeln("naive forward");
