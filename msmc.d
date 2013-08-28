@@ -44,6 +44,7 @@ size_t[] subpopLabels;
 auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 uint nrThreads;
 auto nrTtotSegments = 10UL;
+auto nrTtotInternal = 40UL;
 auto verbose = false;
 string outFilePrefix;
 auto memory = false;
@@ -65,6 +66,7 @@ auto helpString = "Usage: msmc [options] <datafiles>
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
     -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
     -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [default=10]
+    -O, --nrTtotInternal=<size_t> : number of states used for the Ttot-HMM [=40]
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
           number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
           coming from each subpopulation, set this to 0,0,1,1
@@ -81,7 +83,7 @@ void main(string[] args) {
     parseCommandLine(args);
   }
   catch(Exception e) {
-    stderr.writeln("error in parsing command line: ", e.msg);
+    stderr.writeln("error in parsing command line: ", e);
     exit(0);
   }
   run();
@@ -123,6 +125,7 @@ void parseCommandLine(string[] args) {
       "timeSegmentPattern|p", &handleTimeSegmentPatternString,
       "nrThreads|t", &nrThreads,
       "nrTtotSegments|T", &nrTtotSegments,
+      "nrTtotInternal|O", &nrTtotInternal,
       "verbose|v", &verbose,
       "outFilePrefix|o", &outFilePrefix,
       "help|h", &displayHelpMessageAndExit,
@@ -156,6 +159,7 @@ void printGlobalParams() {
   logInfo(format("timeSegmentPattern:  %s\n", timeSegmentPattern));
   logInfo(format("nrThreads:           %s\n", nrThreads));
   logInfo(format("nrTtotSegments:      %s\n", nrTtotSegments));
+  logInfo(format("nrTtotInternal:      %s\n", nrTtotInternal));
   logInfo(format("verbose:             %s\n", verbose));
   logInfo(format("outFilePrefix:       %s\n", outFilePrefix));
   logInfo(format("naiveImplementation: %s\n", naiveImplementation));
@@ -175,34 +179,46 @@ void run() {
   auto params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, 
                                             nrTtotSegments);
   
-  auto inputData = inputFileNames.map!(f => readSegSites(f)).array();
+  auto inputData = readDataFromFiles(inputFileNames);
   
   
   auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
-    logInfo(format("[%s/%s] estimating total branchlengths\r", ++cnt, inputData.length));
-    estimateTotalBranchlengths(data, params);
+    logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+    estimateTotalBranchlengths(data, params, nrTtotInternal);
   }
   logInfo("\n");
   
   auto loopFileName = outFilePrefix ~ ".loops.txt";
+  auto f = File(loopFileName, "w");
+  f.close();
   
   foreach(iteration; 0 .. maxIterations) {
-    logInfo(format("\n[%s/%s] Baumwelch iteration\n", iteration, maxIterations));
+    logInfo(format("[%s/%s] Baumwelch iteration\n", iteration, maxIterations));
     auto expectationResult = getExpectation(inputData, params, hmmStrideWidth, 1000, naiveImplementation);
     auto eMat = expectationResult[0];
     auto logLikelihood = expectationResult[1];
+    printLoop(loopFileName, params, logLikelihood);
     if(verbose) {
       auto filename = outFilePrefix ~ format(".loop_%s.expectationMatrix.txt", iteration);
       printMatrix(filename, eMat);
     }
     auto newParams = getMaximization(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
-    printLoop(loopFileName, newParams, logLikelihood);
     params = newParams;
   }
   
   auto finalName = outFilePrefix ~ ".final.txt";
   printFinal(finalName, params);
+}
+
+SegSite_t[][] readDataFromFiles(string[] filenames) {
+  SegSite_t[][] ret;
+  foreach(filename; filenames) {
+    auto data = readSegSites(filename);
+    logInfo(format("read %s SNPs from file %s\n", data.length, filename));
+    ret ~= data;
+  }
+  return ret;
 }
 
 void printMatrix(string filename, double[][] eMat) {

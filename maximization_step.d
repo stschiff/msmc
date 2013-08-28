@@ -33,12 +33,12 @@ MSMCmodel getMaximization(double[][] eMat, MSMCmodel params, in size_t[] timeSeg
 {
   auto minFunc = new MinFunc(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
 
-  auto powell = new Powell!MinFunc(minFunc, true);
+  auto powell = new Powell!MinFunc(minFunc);
   auto x = minFunc.initialValues();
   powell.init(x);  
   double[] xNew;
   while(powell.iter < 200 && !powell.finished()) {
-    logInfo(format("  * [%s/200(max)] Maximization Step\r", powell.iter));
+    logInfo(format("\r  * [%s/200(max)] Maximization Step", powell.iter));
     xNew = powell.step();
     if(powell.iter == 200) {
       logInfo("WARNING: Powell's maximization method exceeding 200 iterations. Taking best value as maximum.");

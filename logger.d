@@ -8,6 +8,7 @@ static this() {
 
 void logInfo(string str) {
   logFile.write(str);
+  logFile.flush();
   stderr.write(str);
 }
 

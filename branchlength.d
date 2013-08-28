@@ -44,11 +44,9 @@ import model.propagation_core_fastImpl;
 import model.data;
 import expectation_step;
 
-size_t internalNrSegments = 40;
+void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, size_t internalNrSegments) {
 
-void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
-
-  auto propagationCore = buildPropagationCore(params);
+  auto propagationCore = buildPropagationCore(params, internalNrSegments);
   auto msmc_hmm = buildHMM(inputData, propagationCore);
     
   msmc_hmm.runForward();
@@ -73,7 +71,7 @@ void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
   }
 }
   
-private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
+private PropagationCoreFast buildPropagationCore(MSMCmodel params, size_t internalNrSegments) {
   auto lambdaVec = new double[internalNrSegments];
   lambdaVec[] = 1.0;
   // the factor 2 is just part of the formula for the mean total branch length.

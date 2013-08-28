@@ -52,7 +52,7 @@ ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, s
   
   auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
-    logInfo(format("  * [%s/%s] Expectation Step\r", ++cnt, inputData.length));
+    logInfo(format("\r  * [%s/%s] Expectation Step", ++cnt, inputData.length));
     auto result = singleChromosomeExpectation(data, hmmStrideWidth, propagationCore);
     foreach(au; 0 .. msmc.nrMarginals)
       expectationResult[au][] += result[0][au][];
