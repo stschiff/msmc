@@ -58,6 +58,7 @@ ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, s
       expectationResult[au][] += result[0][au][];
     logLikelihood += result[1];
   }
+  logInfo(format(", log likelihood: %s", logLikelihood));
   logInfo("\n");
   
   return tuple(expectationResult, logLikelihood);

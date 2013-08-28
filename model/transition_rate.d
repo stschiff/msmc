@@ -209,6 +209,8 @@ class TransitionRate {
   }
   
   double equilibriumProbability(size_t aij) const {
+    // return 1.0 / marginalIndex.nrStates;
+    
     auto triple = marginalIndex.getTripleFromIndex(aij);
     auto a = triple.time;
     auto i = triple.ind1;

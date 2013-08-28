@@ -53,30 +53,49 @@ auto fixedPopSize = false;
 auto fixedRecombination = false;
 string[] inputFileNames;
 size_t hmmStrideWidth = 1000;
+double[] lambdaVec;
+size_t nrTimeSegments;
+string logFileName, loopFileName, finalFileName;
+
 
 auto helpString = "Usage: msmc [options] <datafiles>
   Options:
     -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
+
     -o, --outFilePrefix=<string> : file prefix to use for all output files
+
     -m, --mutationRate=<double> : mutation rate, scaled by 2N. In case of more than two haplotypes, this needs to be 
           the same as was used in running \"msmc branchlength\".
+
     -r, --recombinationRate=<double> : recombination rate, scaled by 2N, to begin with
-          [by default set to mutationRate / 4]. Note that recombination rate inference does not behave very well for 
+          [by default set to mutationRate / 4]. Recombination rate inference does not work very well for 
           more than two haplotypes. Using the -R option is recommended for more than 2 haplotypes.
+
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
+
     -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
+
     -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [default=10]
-    -O, --nrTtotInternal=<size_t> : number of states used for the Ttot-HMM [=40]
+
+    -O, --nrTtotInternal=<size_t> : number of states used for the Ttot-HMM [default=40]
+
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
           number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
           coming from each subpopulation, set this to 0,0,1,1
-    -R, --fixedRecombination : keep recombination rate fixed [not set by default]
-    
-    Debug Options:
-    -v, --verbose: write out also the transition matrices
-    --naiveImplementation: use naive HMM implementation
-    --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed
-    --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [=1000]";
+
+    -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
+
+    -v, --verbose: write out the expected number of transition matrices (into a separate file)
+
+    --naiveImplementation: use naive HMM implementation [for debugging only]
+
+    --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed [not recommended]
+
+    --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [default=1000]
+
+    --initialLambdaVec <str> : comma-separated string of lambda-values to start with. This can be used to
+      continue a previous run by copying the values in the last row and the third column of the corresponding
+      *.loop file";
 
 void main(string[] args) {
   try {
@@ -112,6 +131,11 @@ void parseCommandLine(string[] args) {
     subpopLabels = map!"to!size_t(a)"(splitted).array();
   }
   
+  void handleLambdaVecString(string option, string lambdaString) {
+    enforce(match(lambdaString, r"^[\d.]+[,[\d.]+]+"), text("illegal array string: ", lambdaString));
+    lambdaVec = std.string.split(lambdaString, ",").map!"to!double(a)"().array();
+  }
+  
   if(args.length == 1) {
     displayHelpMessageAndExit();
   }
@@ -132,7 +156,8 @@ void parseCommandLine(string[] args) {
       "naiveImplementation", &naiveImplementation,
       "hmmStrideWidth", &hmmStrideWidth,
       "fixedPopSize", &fixedPopSize,
-      "fixedRecombination|R", &fixedRecombination
+      "fixedRecombination|R", &fixedRecombination,
+      "initialLambdaVec", &handleLambdaVecString
   );
   if(nrThreads)
     std.parallelism.defaultPoolThreads(nrThreads);
@@ -144,8 +169,16 @@ void parseCommandLine(string[] args) {
   inputFileNames = args[1..$];
   if(subpopLabels.length == 0)
     inferDefaultSubpopLabels();
+  nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
+  if(lambdaVec.length == 0) {
+    lambdaVec = new double[nrTimeSegments];
+    lambdaVec[] = 1.0;
+  }
+  enforce(lambdaVec.length == nrTimeSegments, "initialLambdaVec must have correct length");
   
-  auto logFileName = outFilePrefix ~ ".log";
+  logFileName = outFilePrefix ~ ".log";
+  loopFileName = outFilePrefix ~ ".loop.txt";
+  finalFileName = outFilePrefix ~ ".final.txt";
   logger.logFile = File(logFileName, "w");
   
   printGlobalParams();
@@ -157,7 +190,7 @@ void printGlobalParams() {
   logInfo(format("recombinationRate:   %s\n", recombinationRate));
   logInfo(format("subpopLabels:        %s\n", subpopLabels));
   logInfo(format("timeSegmentPattern:  %s\n", timeSegmentPattern));
-  logInfo(format("nrThreads:           %s\n", nrThreads));
+  logInfo(format("nrThreads:           %s\n", nrThreads == 0 ? totalCPUs : nrThreads));
   logInfo(format("nrTtotSegments:      %s\n", nrTtotSegments));
   logInfo(format("nrTtotInternal:      %s\n", nrTtotInternal));
   logInfo(format("verbose:             %s\n", verbose));
@@ -166,6 +199,12 @@ void printGlobalParams() {
   logInfo(format("hmmStrideWidth:      %s\n", hmmStrideWidth));
   logInfo(format("fixedPopSize:        %s\n", fixedPopSize));
   logInfo(format("fixedRecombination:  %s\n", fixedRecombination));
+  logInfo(format("initialLambdaVec:    %s\n", lambdaVec));
+  logInfo(format("logging information written to %s\n", logFileName));
+  logInfo(format("loop information written to %s\n", loopFileName));
+  logInfo(format("final results written to %s\n", finalFileName));
+  if(verbose)
+    logInfo(format("transition matrices written to %s.loop_*.expectationMatrix.txt\n", outFilePrefix));
 }
 
 void inferDefaultSubpopLabels() {
@@ -175,12 +214,9 @@ void inferDefaultSubpopLabels() {
 }
 
 void run() {
-  auto nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
-  auto params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, 
-                                            nrTtotSegments);
+  auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments);
   
   auto inputData = readDataFromFiles(inputFileNames);
-  
   
   auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
@@ -189,12 +225,11 @@ void run() {
   }
   logInfo("\n");
   
-  auto loopFileName = outFilePrefix ~ ".loops.txt";
   auto f = File(loopFileName, "w");
   f.close();
   
   foreach(iteration; 0 .. maxIterations) {
-    logInfo(format("[%s/%s] Baumwelch iteration\n", iteration, maxIterations));
+    logInfo(format("[%s/%s] Baumwelch iteration\n", iteration + 1, maxIterations));
     auto expectationResult = getExpectation(inputData, params, hmmStrideWidth, 1000, naiveImplementation);
     auto eMat = expectationResult[0];
     auto logLikelihood = expectationResult[1];
@@ -207,8 +242,7 @@ void run() {
     params = newParams;
   }
   
-  auto finalName = outFilePrefix ~ ".final.txt";
-  printFinal(finalName, params);
+  printFinal(finalFileName, params);
 }
 
 SegSite_t[][] readDataFromFiles(string[] filenames) {

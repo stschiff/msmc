@@ -35,6 +35,7 @@ MSMCmodel getMaximization(double[][] eMat, MSMCmodel params, in size_t[] timeSeg
 
   auto powell = new Powell!MinFunc(minFunc);
   auto x = minFunc.initialValues();
+  auto startVal = minFunc(x);
   powell.init(x);  
   double[] xNew;
   while(powell.iter < 200 && !powell.finished()) {
@@ -44,7 +45,8 @@ MSMCmodel getMaximization(double[][] eMat, MSMCmodel params, in size_t[] timeSeg
       logInfo("WARNING: Powell's maximization method exceeding 200 iterations. Taking best value as maximum.");
     }
   }
-  logInfo("\n");
+  auto endVal = minFunc(xNew);
+  logInfo(format(", Q-function before: %s, after:%s\n", startVal, endVal));
   return minFunc.makeParamsFromVec(xNew);
 }
 

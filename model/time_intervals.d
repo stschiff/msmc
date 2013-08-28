@@ -147,6 +147,11 @@ class TimeIntervals {
       return meanTimeForNormalRate(i, lambda);
     }
   }
+
+  double meanTime(size_t i, size_t nrHaplotypes) const {
+    auto trivialTotalLambda = nrHaplotypes * (nrHaplotypes - 1) / 2;
+    return meanTimeWithLambda(i, trivialTotalLambda);
+  }
   
   private double meanTimeForLowRate(size_t i, double lambda) const {
     if(i < nrIntervals() - 1)
@@ -163,9 +168,6 @@ class TimeIntervals {
     return time;
   }
   
-  double meanTime(size_t i) const {
-    return meanTimeForLowRate(i, 1.0);
-  }
 }
 
 double[] convertPiecewiseFunctions(in TimeIntervals timeIntervals, in double[2][] functionPoints) {

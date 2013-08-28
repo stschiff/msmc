@@ -70,14 +70,16 @@ class MSMCmodel {
   double emissionProb(string alleles, size_t aij, size_t tTotIndex) const {
     auto triple = marginalIndex.getTripleFromIndex(aij);
     auto type = emissionRate.emissionType(alleles, triple.ind1, triple.ind2);
-    auto time = timeIntervals.meanTimeWithLambda(triple.time, coal.getTotalMarginalLambda(triple.time));
-    auto tTot = tTotIntervals.meanTime(tTotIndex);
+    // auto time = timeIntervals.meanTimeWithLambda(triple.time, coal.getTotalMarginalLambda(triple.time));
+    auto time = timeIntervals.meanTimeWithLambda(triple.time, nrHaplotypes);
+    auto tTot = tTotIntervals.meanTime(tTotIndex, nrHaplotypes);
     return emissionRate.emissionProb(type, time, tTot);
   }
   
   double emissionProbHom(size_t time_index, size_t ttotIndex) const {
-    auto time = timeIntervals.meanTimeWithLambda(time_index, coal.getTotalMarginalLambda(time_index));
-    auto tTot = tTotIntervals.meanTime(ttotIndex);
+    // auto time = timeIntervals.meanTimeWithLambda(time_index, coal.getTotalMarginalLambda(time_index));
+    auto time = timeIntervals.meanTimeWithLambda(time_index, nrHaplotypes);
+    auto tTot = tTotIntervals.meanTime(ttotIndex, nrHaplotypes);
     return emissionRate.emissionProb(EmissionRate.Observation_t.NoMut, time, tTot);
   }
   
