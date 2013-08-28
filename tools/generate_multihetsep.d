@@ -25,7 +25,7 @@ size_t minConsQ = 20;
 string[] filenames;
 string ref_filename;
 FILE_TYPE[] types;
-string chromosome;
+string[] chromosome;
 string ref_chr;
 string positions_filename;
 
@@ -81,7 +81,7 @@ void main(string[] args) {
 }
 
 void readArgs(string[] args) {
-  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "chromosome|c", &chromosome, "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "positions_file|p", &positions_filename);
+  getopt(args, std.getopt.config.caseSensitive, std.getopt.config.passThrough, "types|t", toDelegate(&handleTypes), "minDepth|m", &minDepth, "maxDepth|M", &maxDepth, "minMapQ", &minMapQ, "minConsQ", &minConsQ, "chromosome|c", toDelegate(&handleChrom), "ref_chr", &ref_chr, "reference_file|r", &ref_filename, "positions_file|p", &positions_filename);
   
   enforce(minDepth > 0 && maxDepth > minDepth, "maxDepth should be larger than minDepth");
   enforce(args.length > 1, "need at least one file");
@@ -89,10 +89,15 @@ void readArgs(string[] args) {
   if(filenames[0] == "-")
     enforce(filenames.length == 1, "stdin can't be combined with other files");
   enforce(types.length == filenames.length, "types must be set for each file");
+  enforce(chromosome.length == types.length, "need same number of chromosomes as types");
 }
 
 void handleTypes(string option, string value) {
   types = value.split(",").map!(a => to!FILE_TYPE(a)).array();
+}
+
+void handleChrom(string option, string value) {
+  chromosome = value.split(",");
 }
 
 void printHelp() {
@@ -101,7 +106,7 @@ if <file1>='-', read from stdin.
 
 General Options:
 -t, --types: comma-separated string of either VCF or CG, must be given for each file
--c, --chromosome: chromosome label
+-c, --chromosome: comma-separated list of chromosome labels, one for each input file
 -p, --positions_file: File with line-separated positions, at which exclusively to call 
 
 Options only for type VCF:
@@ -120,24 +125,24 @@ void run() {
   char[][] consensusSequences;
   foreach(fileIndex; 0 .. filenames.length) {
     if(types[fileIndex] == FILE_TYPE.VCF)
-      consensusSequences ~= readVCF(filenames[fileIndex]);
+      consensusSequences ~= readVCF(filenames[fileIndex], chromosome[fileIndex]);
     else {
       if(ref_seq.length == 0) {
         ref_seq = readFastaSequence(ref_filename, ref_chr);
       }
-      consensusSequences ~= readCG(filenames[fileIndex], ref_seq);
+      consensusSequences ~= readCG(filenames[fileIndex], chromosome[fileIndex], ref_seq);
     }
   }
   normalizeLengths(consensusSequences, 'N');
   printOutput(consensusSequences);
 }
 
-char[][] readVCF(string filename) {
+char[][] readVCF(string filename, string chrom) {
   char[][] ret;
   auto nrSamples = 0UL;
   auto file = openFile(filename);
   auto cnt = 0;
-  foreach(line; file.byLine().filter!(l => l.startsWith(chromosome))()) {
+  foreach(line; file.byLine().filter!(l => l.startsWith(chrom))()) {
     auto fields = line.strip().split("\t");
     if(nrSamples == 0) {
       nrSamples = fields.length - 9;
@@ -163,6 +168,7 @@ char[][] readVCF(string filename) {
             
       if(dp >= minDepth && dp <= maxDepth && mq >= minMapQ && abs(fq) >= minConsQ) {
         if(fields[4] != ".") {
+          // writeln("found line: ", line);
           foreach(j; 0 .. nrSamples) {
             auto gen1 = [fields[9 + j][0]].to!int();
             auto gen2 = [fields[9 + j][2]].to!int();
@@ -210,7 +216,7 @@ unittest {
   assert(equal(seq, "ACCTNNNN"));
 }
 
-char[] readCG(string filename, char[] ref_seq) {
+char[] readCG(string filename, string chrom_str, char[] ref_seq) {
   enum zygosity_t {NO_CALL, HAP, HALF, HOM, HET_REF, HET_ALT}
   enum vartype_t {SNP, INS, DEL, SUB, REF, COMPLEX, NO_REF, PAR_CALLED_IN_X}
   enum varquality_t {VQLOW, VQHIGH}
@@ -231,7 +237,7 @@ char[] readCG(string filename, char[] ref_seq) {
       stderr.writefln("processing pos %s:%s-%s", chrom, begin, end);
       // break;
     }
-    if(chrom != chromosome) {
+    if(chrom != chrom_str) {
       if(chromosome_read)
         break;
       else
@@ -319,26 +325,34 @@ void printOutput(char[][] consensusSequences) {
   auto nr_called_sites = 0;
   auto nrHaplotypes = 2 * consensusSequences.length;
   size_t[] forced_positions;
-  size_t current_position_index = 0;
+  int current_position_index = 0;
   if(positions_filename.length > 0) {
     forced_positions = readPositions(positions_filename);
     stderr.writeln("read positions: ", forced_positions[0..20]);
   }
   foreach(i; 0 .. consensusSequences[0].length) {
     if(i % 1000000 == 0)
-      stderr.writeln("position ", i);
-    if(hasGap(consensusSequences, i))
-      continue;
-    nr_called_sites += 1;
-    if(hasSNP(consensusSequences, i) || (((forced_positions.length > 0) && (current_position_index < forced_positions.length - 1) && (forced_positions[current_position_index] == i + 1)))) {
-
-      auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
-
-      if((forced_positions.length > 0) && (forced_positions[current_position_index] == i + 1)) {
-        current_position_index += 1;
+      stderr.writeln("position ", i, ", ", current_position_index);
+    if(!hasGap(consensusSequences, i))
+      nr_called_sites += 1;
+    if(forced_positions.length == 0) {
+      if(hasSNP(consensusSequences, i) && !hasGap(consensusSequences, i)) {
+        auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
+        writefln("%s\t%s\t%s\t%s", chromosome[0], i + 1, nr_called_sites, alleleString);
+        nr_called_sites = 0;
       }
-      writefln("%s\t%s\t%s\t%s", chromosome, i + 1, nr_called_sites, alleleString);
-      nr_called_sites = 0;
+    }
+    else {
+      if((current_position_index < cast(int)forced_positions.length - 1) &&
+         (forced_positions[current_position_index] == i + 1))
+      {
+        current_position_index += 1;
+        if(!hasGap(consensusSequences, i)) {
+          auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
+          writefln("%s\t%s\t%s\t%s", chromosome[0], i + 1, nr_called_sites, alleleString);
+          nr_called_sites = 0;
+        }
+      }
     }
   }
 }
