@@ -59,7 +59,7 @@ void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, size_t 
     msmc_hmm.getBackwardState(backwardState, inputData[dataIndex].pos);
     double ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(0, 1.0);
     auto max = forwardState.vec[0] * backwardState.vec[0];
-    foreach(i; 0 .. params.nrTimeIntervals) {
+    foreach(i; 0 .. propagationCore.msmc.nrTimeIntervals) {
       auto p = forwardState.vec[i] * backwardState.vec[i];
       if(p > max) {
         max = p;
