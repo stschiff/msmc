@@ -34,7 +34,7 @@ import model.msmc_hmm;
 import model.data;
 import logger;
 
-alias Tuple!(double[][], double) ExpectationResult_t;
+alias Tuple!(double[], double[][], double) ExpectationResult_t;
 
 ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, size_t hmmStrideWidth,
                                    size_t maxDistance, bool naiveImplementation=false)
@@ -45,23 +45,28 @@ ExpectationResult_t getExpectation(in SegSite_t[][] inputData, MSMCmodel msmc, s
   else
     propagationCore = new PropagationCoreFast(msmc, maxDistance);
   
-  auto expectationResult = new double[][](msmc.nrMarginals, msmc.nrMarginals);
-  foreach(ref row; expectationResult)
-    row[] = 0.0;
+  auto expectationResultVec = new double[msmc.nrMarginals];
+  auto expectationResultMat = new double[][](msmc.nrMarginals, msmc.nrMarginals);
+  foreach(au; 0 .. msmc.nrMarginals) {
+    expectationResultVec[au] = 0.0;
+    expectationResultMat[au][] = 0.0;
+  }
   auto logLikelihood = 0.0;
   
   auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
     logInfo(format("\r  * [%s/%s] Expectation Step", ++cnt, inputData.length));
     auto result = singleChromosomeExpectation(data, hmmStrideWidth, propagationCore);
-    foreach(au; 0 .. msmc.nrMarginals)
-      expectationResult[au][] += result[0][au][];
-    logLikelihood += result[1];
+    foreach(au; 0 .. msmc.nrMarginals) {
+      expectationResultVec[au] += result[0][au];
+      expectationResultMat[au][] += result[1][au][];
+    }
+    logLikelihood += result[2];
   }
   logInfo(format(", log likelihood: %s", logLikelihood));
   logInfo("\n");
   
-  return tuple(expectationResult, logLikelihood);
+  return tuple(expectationResultVec, expectationResultMat, logLikelihood);
 }
 
 ExpectationResult_t singleChromosomeExpectation(in SegSite_t[] data, size_t hmmStrideWidth,
@@ -73,7 +78,7 @@ ExpectationResult_t singleChromosomeExpectation(in SegSite_t[] data, size_t hmmS
   auto exp = msmc_hmm.runBackward(hmmStrideWidth);
   auto logL = msmc_hmm.logLikelihood();
   msmc_hmm.destroy();
-  return tuple(exp, logL);
+  return tuple(exp[0], exp[1], logL);
 }
 
 unittest {
@@ -92,18 +97,19 @@ unittest {
   std.parallelism.defaultPoolThreads(2U);
   auto resultMultiThreaded = getExpectation(allData, msmc, hmmStrideWidth, 100UL);
    
+  auto lvl = 1.0e-8;
   auto sumSingleThreaded = 0.0;
   auto sumMultiThreaded = 0.0;
-  foreach(row; resultSingleThreaded[0]) {
-    foreach(val; row) {
-      assert(val >= 0.0);
-      sumSingleThreaded += val;
-    }
-  }
-  foreach(row; resultMultiThreaded[0]) {
-    foreach(val; row) {
-      assert(val >= 0.0);
-      sumMultiThreaded += val;
+  foreach(au; 0 .. msmc.nrMarginals) {
+    assert(resultSingleThreaded[0][au] >= 0.0);
+    assert(resultMultiThreaded[0][au] >= 0.0);
+    sumSingleThreaded += resultSingleThreaded[0][au];
+    sumMultiThreaded += resultMultiThreaded[0][au];
+    foreach(bv; 0 .. msmc.nrMarginals) {
+      assert(resultSingleThreaded[1][au][bv] >= 0.0, text(resultSingleThreaded[1][au][bv]));
+      assert(resultMultiThreaded[1][au][bv] >= 0.0, text(resultMultiThreaded[1][au][bv]));
+      sumSingleThreaded += resultSingleThreaded[1][au][bv];
+      sumMultiThreaded += resultMultiThreaded[1][au][bv];
     }
   }
   assert(approxEqual(sumSingleThreaded, sumMultiThreaded, 1.0e-8, 0.0), text([sumSingleThreaded, sumMultiThreaded]));

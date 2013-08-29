@@ -231,14 +231,15 @@ void run() {
   foreach(iteration; 0 .. maxIterations) {
     logInfo(format("[%s/%s] Baumwelch iteration\n", iteration + 1, maxIterations));
     auto expectationResult = getExpectation(inputData, params, hmmStrideWidth, 1000, naiveImplementation);
-    auto eMat = expectationResult[0];
-    auto logLikelihood = expectationResult[1];
+    auto eVec = expectationResult[0];
+    auto eMat = expectationResult[1];
+    auto logLikelihood = expectationResult[2];
     printLoop(loopFileName, params, logLikelihood);
     if(verbose) {
       auto filename = outFilePrefix ~ format(".loop_%s.expectationMatrix.txt", iteration);
-      printMatrix(filename, eMat);
+      printMatrix(filename, eVec, eMat);
     }
-    auto newParams = getMaximization(eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
+    auto newParams = getMaximization(eVec, eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
     params = newParams;
   }
   
@@ -255,10 +256,13 @@ SegSite_t[][] readDataFromFiles(string[] filenames) {
   return ret;
 }
 
-void printMatrix(string filename, double[][] eMat) {
+void printMatrix(string filename, double[] eVec, double[][] eMat) {
   auto f = File(filename, "w");
-  foreach(row; eMat) {
-    foreach(val; row) {
+  foreach(au; 0 .. eVec.length) {
+    foreach(bv; 0 .. eVec.length) {
+      auto val = eMat[au][bv];
+      if(au == bv)
+        val += eVec[au];
       f.writef("%s\t", val);
     }
     f.write("\n");

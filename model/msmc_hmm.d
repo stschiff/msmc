@@ -147,27 +147,33 @@ class MSMC_hmm {
     have_run_forward = true;
   }
 
-  double[][] runBackward(size_t hmmStrideWidth=1000) {
+  Tuple!(double[], double[][]) runBackward(size_t hmmStrideWidth=1000) {
     enforce(have_run_forward);
 
     auto nrMarginals = propagationCore.getMSMC.nrMarginals;
 
-    auto forwardBackwardResult = new double[][](nrMarginals, nrMarginals);
-    foreach(i; 0 .. nrMarginals)
-      forwardBackwardResult[i][] = 0.0;
+    auto forwardBackwardResultVec = new double[nrMarginals];
+    auto forwardBackwardResultMat = new double[][](nrMarginals, nrMarginals);
+    foreach(i; 0 .. nrMarginals) {
+      forwardBackwardResultVec[i] = 0.0;
+      forwardBackwardResultMat[i][] = 0.0;
+    }
     
     currentBackwardIndex = L - 1;
-    auto expec = new double[][](nrMarginals, nrMarginals);
+    auto expecVec = new double[nrMarginals];
+    auto expecMat = new double[][](nrMarginals, nrMarginals);
     for(size_t pos = segsites[$ - 1].pos; pos > segsites[0].pos && pos <= segsites[$ - 1].pos; pos -= hmmStrideWidth) {
-      getSingleExpectation(pos, expec);
-      foreach(i; 0 .. nrMarginals)
-        forwardBackwardResult[i][] += expec[i][];
+      getSingleExpectation(pos, expecVec, expecMat);
+      foreach(i; 0 .. nrMarginals) {
+        forwardBackwardResultVec[i] += expecVec[i];
+        forwardBackwardResultMat[i][] += expecMat[i][];
+      }
     }
 
-    return forwardBackwardResult;
+    return tuple(forwardBackwardResultVec, forwardBackwardResultMat);
   }
   
-  private void getSingleExpectation(size_t pos, double[][] ret)
+  private void getSingleExpectation(size_t pos, double[] expecVec, double[][] expecMat)
   in {
     assert(pos > segsites[0].pos, text(pos, " ", segsites[0].pos));
     assert(pos <= segsites[$ - 1].pos, text([pos, segsites[0].pos]));
@@ -175,8 +181,10 @@ class MSMC_hmm {
   }
   out {
     auto sum = 0.0;
-    foreach(row; ret)
-      sum += reduce!"a+b"(row);
+    foreach(i; 0 .. propagationCore.getMSMC.nrMarginals) {
+      sum += reduce!"a+b"(expecMat[i]);
+      sum += expecVec[i];
+    }
     assert(approxEqual(sum, 1.0, 1.0e-8, 0.0), text(sum));
   }
   body {    
@@ -184,7 +192,7 @@ class MSMC_hmm {
     getBackwardState(expectationBackwardDummy, pos);
     auto site = getSegSite(pos);
     
-    propagationCore.getTransitionExpectation(expectationForwardDummy, expectationBackwardDummy, site, ret);
+    propagationCore.getTransitionExpectation(expectationForwardDummy, expectationBackwardDummy, site, expecVec, expecMat);
   } 
   
   void getForwardState(State_t s, size_t pos)
@@ -368,11 +376,15 @@ unittest {
   }
   auto expec = msmc_hmm_fast.runBackward();
   auto expec_n = msmc_hmm_naive.runBackward();
-  foreach(alpha; 0 .. params.nrTimeIntervals) {
-    foreach(beta; 0 .. params.nrTimeIntervals) {
+  foreach(au; 0 .. params.nrMarginals) {
+    assert(
+        approxEqual(expec[0][au], expec_n[0][au], lvl, 0.0),
+        text([expec[0][au], expec_n[0][au]])
+    );
+    foreach(bv; 0 .. params.nrMarginals) {
       assert(
-          approxEqual(expec[alpha][beta], expec_n[alpha][beta], lvl, 0.0),
-          text([expec[alpha][beta], expec_n[alpha][beta]])
+          approxEqual(expec[1][au][bv], expec_n[1][au][bv], lvl, lvl),
+          text([expec[1][au][bv], expec_n[1][au][bv]])
       );
     }
   }

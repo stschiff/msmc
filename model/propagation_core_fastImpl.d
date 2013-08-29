@@ -392,19 +392,24 @@ class PropagationCoreFast : PropagationCore {
   }
   
   override void getTransitionExpectation(State_t f, State_t b,
-      in SegSite_t to_segsite, double[][] ret) const
+      in SegSite_t to_segsite, double[] eVec, double[][] eMat) const
   {
-    foreach(ref row; ret)
-      row[] = 0.0;
     foreach(bv; 0 .. msmc.nrMarginals) {
       foreach(au; 0 .. msmc.nrMarginals) {
-        ret[au][bv] =
+        eMat[au][bv] =
             f.vecMarginal[bv] * transitionMatrixQ2[au][bv] * b.vecMarginalEmission[au];
       }
     }
+    eVec[] = 0.0;
     foreach(aij; 0 .. msmc.nrStates) {
       auto au = msmc.marginalIndex.getMarginalIndexFromIndex(aij);
-      ret[au][au] += f.vec[aij] * fullE(to_segsite, aij) * transitionMatrixQ1[au] * b.vec[aij];
+      eMat[au][au] -= f.vec[aij] * transitionMatrixQ2[au][au] * fullE(to_segsite, aij) * b.vec[aij];
+      if(eMat[au][au] < 0.0) { // this just corrects tiny numerical errors from the addition-subtraction here.
+        assert(-eMat[au][au] < 1.0e-20);
+        eMat[au][au] = 0.0;
+      }
+      eVec[au] += f.vec[aij] * (transitionMatrixQ1[au] + transitionMatrixQ2[au][au]) * fullE(to_segsite, aij) * 
+                  b.vec[aij];
     }
   }
   
