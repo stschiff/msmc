@@ -42,7 +42,6 @@ import model.coalescence_rate;
 import model.rate_integrator;
 import model.propagation_core_fastImpl;
 import model.data;
-import expectation_step;
 
 void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, size_t internalNrSegments) {
 

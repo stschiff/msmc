@@ -1,41 +1,26 @@
-msmc_src = model/emission_rate.d model/transition_rate.d \
-model/gsl_matrix_vector.d model/data.d model/time_intervals.d model/msmc_hmm.d model/propagation_core_naiveImpl.d \
-model/propagation_core.d model/rate_integrator.d model/coalescence_rate.d \
-model/triple_index_marginal.d model/triple_index.d model/msmc_model.d powell.d brent.d \
-model/propagation_core_fastImpl.d maximization_step.d expectation_step.d baumwelch.d inference.d msmc.d \
-amoeba.d expectation.d maximization.d stats.d \
-model/stateVec.d model/stateVecAllocator.d branchlength.d decode.d print.d
+GSL = /usr/lib/libgsl.a /usr/lib/libgslcblas.a
 
-unittest_src = unittest.d model/emission_rate.d model/transition_rate.d \
-model/gsl_matrix_vector.d model/data.d model/time_intervals.d model/msmc_hmm.d model/propagation_core_naiveImpl.d \
-model/propagation_core.d model/rate_integrator.d model/coalescence_rate.d \
-model/triple_index_marginal.d model/triple_index.d model/msmc_model.d powell.d brent.d \
-model/propagation_core_fastImpl.d maximization_step.d expectation_step.d amoeba.d \
-model/stateVec.d model/stateVecAllocator.d
+build/msmc : model/*.d powell.d brent.d maximization_step.d expectation_step.d msmc.d branchlength.d logger.d
+	dmd -O ${GSL} -release -inline -odbuild -ofbuild/msmc $^
 
-all : unittest debug
+build/test : model/*.d test.d
+	dmd ${GSL} -odbuild -ofbuild/test $^
 
-unittest :
-	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
-	build/unittest
+build/decode : model/*.d decode.d branchlength.d
+	dmd ${GSL} -odbuild -ofbuild/decode $^
 
-debug : build/debug/msmc
+.PHONY : unittest testcoverage clean
 
-release : build/release/msmc
-
-build/debug/msmc : ${msmc_src}
-	dmd ${msmc_src} -L-lgsl -L-lgslcblas -odbuild -ofbuild/debug/msmc
-
-build/release/msmc : ${msmc_src}
-	dmd ${msmc_src} -O -release -inline /usr/lib/libgsl.a /usr/lib/libgslcblas.a -odbuild -ofbuild/release/msmc
-
-testcoverage :
+testcoverage : model/*.d unittest.d powell.d brent.d maximization_step.d expectation_step.d amoeba.d logger.d
 	mkdir -p code_coverage
-	dmd -unittest -cov ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
+	dmd -unittest -cov ${GSL} -odbuild -ofbuild/unittest $^
 	build/unittest
 	mv *.lst code_coverage/
+
+unittest : model/*.d unittest.d powell.d brent.d maximization_step.d expectation_step.d amoeba.d logger.d
+	dmd -unittest ${GSL} -odbuild -ofbuild/unittest $^
+	build/unittest
 
 clean :
 	find build -type f -delete
 
-.PHONY : all unittest testcoverage clean

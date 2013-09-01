@@ -96,11 +96,11 @@ class EmissionRate {
       ret = exp(-mu * tTot);
       break;
       case Observation_t.MutElsewhere:
-      ret = (1.0 - exp(-mu * tTot)) * (1.0 - first_coal_frac) /
-            (nrHaplotypes > 2 ? (2.0 ^^ (nrHaplotypes - 2) - 1.0) : 1.0);
+      ret = (1.0 - exp(-mu * tTot)) * (1.0 - first_coal_frac);// /
+            // (nrHaplotypes > 2 ? (2.0 ^^ (nrHaplotypes - 2) - 1.0) : 1.0);
       break;
       case Observation_t.MutInPair:
-      ret = (1.0 - exp(-mu * tTot)) * first_coal_frac / 2.0;
+      ret = (1.0 - exp(-mu * tTot)) * first_coal_frac;
       break;
     }
     return ret;
