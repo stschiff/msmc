@@ -64,8 +64,8 @@ class TimeIntervals {
     return new TimeIntervals(boundaries);
   }
 
-  static TimeIntervals standardTotalBranchlengthIntervals(size_t nrTimeSegments, size_t nrHaplotypes) {
-    auto expectedTtot = 2.0 * computeWattersonFactor(nrHaplotypes);
+  static TimeIntervals standardTotalBranchlengthIntervals(size_t nrTimeSegments) {
+    auto expectedTtot = 2.0;// * computeWattersonFactor(nrHaplotypes);
     auto boundaries = getBoundaries(&computeQuantileBoundary, nrTimeSegments, expectedTtot);
     return new TimeIntervals(boundaries);
   }

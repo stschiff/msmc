@@ -87,7 +87,7 @@ private MSMC_hmm buildHMM(SegSite_t[] inputData, size_t nrHaplotypes, Propagatio
   auto alleles = canonicalAlleleOrder(nrHaplotypes);
   foreach(s; inputData) {
     auto dummySite = s.dup;
-    if(s.obs[0] > 1) {
+    if(s.obs.any!"a>1"()) {
       auto count_0 = count(alleles[s.obs[0] - 1], '0');
       auto count_1 = nrHaplotypes - count_0;
       if(count_0 == 1 || count_1 == 1)
