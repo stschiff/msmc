@@ -99,8 +99,8 @@ class EmissionRate {
       ret = (1.0 - exp(-mu * tTot)) * (tLeaf - 2.0 * t) / tTot / (nrHaplotypes - 2.0);
       break;
       case Observation_t.MultiElsewhere:
-      ret = (1.0 - exp(-mu * tTot)) * (tTot - tLeaf) / 
-            (2.0 ^^ (nrHaplotypes - 2) - (nrHaplotypes - 2.0) - 1.0);
+      ret = (1.0 - exp(-mu * tTot)) * (tTot - tLeaf);// / 
+//            (2.0 ^^ (nrHaplotypes - 2) - (nrHaplotypes - 2.0) - 1.0);
       break;
     }
     return ret;
