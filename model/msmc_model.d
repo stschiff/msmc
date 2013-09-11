@@ -69,18 +69,16 @@ class MSMCmodel {
   
   double emissionProb(string alleles, size_t aij, size_t tTotIndex) const {
     auto triple = marginalIndex.getTripleFromIndex(aij);
-    auto type = emissionRate.emissionType(alleles, triple.ind1, triple.ind2);
-    // auto time = timeIntervals.meanTimeWithLambda(triple.time, coal.getTotalMarginalLambda(triple.time));
-    auto time = timeIntervals.meanTimeWithLambda(triple.time, nrHaplotypes);
-    auto tTot = tTotIntervals.meanTime(tTotIndex, nrHaplotypes);
-    return emissionRate.emissionProb(type, time, tTot);
+    auto id = emissionRate.getEmissionId(alleles, triple.ind1, triple.ind2);
+    auto time = timeIntervals.meanTime(triple.time, nrHaplotypes);
+    auto tLeaf = tTotIntervals.meanTime(tTotIndex, 2);
+    return emissionRate.emissionProb(id, time, tLeaf);
   }
   
   double emissionProbHom(size_t time_index, size_t ttotIndex) const {
-    // auto time = timeIntervals.meanTimeWithLambda(time_index, coal.getTotalMarginalLambda(time_index));
-    auto time = timeIntervals.meanTimeWithLambda(time_index, nrHaplotypes);
-    auto tTot = tTotIntervals.meanTime(ttotIndex, nrHaplotypes);
-    return emissionRate.emissionProb(EmissionRate.Observation_t.NoMut, time, tTot);
+    auto time = timeIntervals.meanTime(time_index, nrHaplotypes);
+    auto tTot = tTotIntervals.meanTime(ttotIndex, 2);
+    return emissionRate.emissionProb(0, time, tTot);
   }
   
   @property size_t nrHaplotypes() const {
