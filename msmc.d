@@ -51,7 +51,7 @@ auto naiveImplementation = false;
 auto fixedPopSize = false;
 auto fixedRecombination = false;
 bool directedEmissions = false;
-string[] inputFileNames;
+string[] inputFileNames, treeFileNames;
 size_t hmmStrideWidth = 1000;
 double[] lambdaVec;
 size_t nrTimeSegments;
@@ -122,6 +122,10 @@ void parseCommandLine(string[] args) {
     lambdaVec = std.string.split(lambdaString, ",").map!"to!double(a)"().array();
   }
   
+  void handleTreeFileNames(string option, string value) {
+    treeFileNames = std.string.split(value, ",").array();
+  }
+  
   if(args.length == 1) {
     displayHelpMessageAndExit();
   }
@@ -143,7 +147,8 @@ void parseCommandLine(string[] args) {
       "hmmStrideWidth", &hmmStrideWidth,
       "fixedPopSize", &fixedPopSize,
       "fixedRecombination|R", &fixedRecombination,
-      "initialLambdaVec", &handleLambdaVecString
+      "initialLambdaVec", &handleLambdaVecString,
+      "treeFileNames", &handleTreeFileNames
   );
   if(nrThreads)
     std.parallelism.defaultPoolThreads(nrThreads);
@@ -160,6 +165,7 @@ void parseCommandLine(string[] args) {
     lambdaVec = new double[nrTimeSegments];
     lambdaVec[] = 1.0;
   }
+  enforce(treeFileNames.length == 0 || treeFileNames.length == inputFileNames.length);
   enforce(lambdaVec.length == nrTimeSegments, "initialLambdaVec must have correct length");
   
   logFileName = outFilePrefix ~ ".log";
@@ -206,9 +212,12 @@ void run() {
   auto inputData = readDataFromFiles(inputFileNames, directedEmissions);
   
   auto cnt = 0;
-  foreach(data; taskPool.parallel(inputData)) {
+  foreach(i, data; taskPool.parallel(inputData)) {
     logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
-    estimateTotalBranchlengths(data, params);
+    if(treeFileNames.length > 0)
+      readTotalBranchlengths(data, params, treeFileNames[i]);
+    else
+      estimateTotalBranchlengths(data, params);
   }
   logInfo("\n");
   
