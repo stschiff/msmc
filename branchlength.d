@@ -72,11 +72,10 @@ void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
 private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
   auto lambdaVec = new double[params.nrTtotIntervals];
   lambdaVec[] = 1.0;
-  // the factor 2 is just part of the formula for the mean total branch length.
-  auto expectedTtot = 2.0;// * TimeIntervals.computeWattersonFactor(params.nrHaplotypes);
-  // the next factor 2 fakes a two haplotype system with the same total branch length (every branch gets half)
+  auto expectedTtot =
+      params.emissionRate.directedEmissions ? 2.0 : 2.0 * (1.0 + 1.0 / (params.nrHaplotypes - 1.0));
   auto boundaries = TimeIntervals.getQuantileBoundaries(params.nrTtotIntervals, expectedTtot / 2.0);
-  auto model = new MSMCmodel(params.mutationRate, params.recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1);
+  auto model = new MSMCmodel(params.mutationRate, params.recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1, params.emissionRate.directedEmissions);
 
   auto propagationCore = new PropagationCoreFast(model, 1000);
   return propagationCore;
@@ -84,16 +83,24 @@ private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
   
 private MSMC_hmm buildHMM(SegSite_t[] inputData, size_t nrHaplotypes, PropagationCoreFast propagationCore) {
   SegSite_t[] dummyInputData;
-  auto alleles = canonicalAlleleOrder(nrHaplotypes);
+  auto alleles = canonicalAlleleOrder(nrHaplotypes, propagationCore.msmc.emissionRate.directedEmissions);
   foreach(s; inputData) {
     auto dummySite = s.dup;
     if(s.obs.any!"a>1"()) {
       auto count_0 = count(alleles[s.obs[0] - 1], '0');
       auto count_1 = nrHaplotypes - count_0;
-      if(count_0 == 1 || count_1 == 1)
-        dummySite.obs = [2];
-      else
-        dummySite.obs = [1];
+      if(propagationCore.msmc.emissionRate.directedEmissions) {
+        if(count_1 == 1)
+          dummySite.obs = [2];
+        else
+          dummySite.obs = [1];
+      }
+      else {
+        if(count_0 == 1 || count_1 == 1)
+          dummySite.obs = [2];
+        else
+          dummySite.obs = [1];
+      }
     }
     dummyInputData ~= dummySite;
   }

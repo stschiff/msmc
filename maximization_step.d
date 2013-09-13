@@ -163,7 +163,7 @@ class MinFunc {
   MSMCmodel makeParamsFromVec(in double[] x) {
     auto lambdaVec = fixedPopSize ? getLambdaVecFromXfixedPop(x) : getLambdaVecFromX(x);
     auto recombinationRate = fixedRecombination ? initialParams.recombinationRate : getRecombinationRateFromX(x);
-    return new MSMCmodel(initialParams.mutationRate, recombinationRate, initialParams.subpopLabels, lambdaVec, initialParams.nrTimeIntervals, initialParams.nrTtotIntervals);
+    return new MSMCmodel(initialParams.mutationRate, recombinationRate, initialParams.subpopLabels, lambdaVec, initialParams.nrTimeIntervals, initialParams.nrTtotIntervals, initialParams.emissionRate.directedEmissions);
   }
   
   double[] getLambdaVecFromXfixedPop(in double[] x)
@@ -244,7 +244,7 @@ unittest {
   auto lambdaVec = new double[12];
   foreach(i; 0 .. 12)
     lambdaVec[i] = cast(double)i + 1.0;
-  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4);
+  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4, false);
   auto expectationResultVec = new double[params.nrMarginals];
   auto expectationResultMat = new double[][](params.nrMarginals, params.nrMarginals);
   auto timeSegmentPattern = [2UL, 2];

@@ -57,30 +57,37 @@ class SegSite_t {
   }
 }
 
-string[] canonicalAlleleOrder(size_t M) {
+string[] canonicalAlleleOrder(size_t M, bool directedEmissions) {
   // we group observations into pairs of strings of two alleles {0,1} which are synonymous with respect to exchanging 0 and 1. For example, we group together the pair [000, 111] or [101, 010]. We denote each group by the version of the string which begins with 0.
   
   string[] allele_order;
   assert(M >= 2);
   auto formatStr = format("%%0%db", M);
-  foreach(i; 0 .. 2 ^^ (M - 1)) {
-    allele_order ~= format(formatStr, i);
+  if(directedEmissions) {
+    foreach(i; 0 .. 2 ^^ M) {
+      allele_order ~= format(formatStr, i);
+    }
+  }
+  else {
+    foreach(i; 0 .. 2 ^^ (M - 1)) {
+      allele_order ~= format(formatStr, i);
+    }
   }
   return allele_order;
 }
 
 unittest {
   writeln("test canonicalAlleleOrder");
-  assert(canonicalAlleleOrder(2) == ["00", "01"]);
-  assert(canonicalAlleleOrder(3) == ["000", "001", "010", "011"]);
-  assert(canonicalAlleleOrder(4) == [
+  assert(canonicalAlleleOrder(2, false) == ["00", "01"]);
+  assert(canonicalAlleleOrder(3, false) == ["000", "001", "010", "011"]);
+  assert(canonicalAlleleOrder(4, false) == [
       "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111"
     ]);
-  assert(canonicalAlleleOrder(5) == [
+  assert(canonicalAlleleOrder(5, false) == [
       "00000", "00001", "00010", "00011", "00100", "00101", "00110", "00111",
       "01000", "01001", "01010", "01011", "01100", "01101", "01110", "01111"
     ]);
-  assert(canonicalAlleleOrder(6) == [
+  assert(canonicalAlleleOrder(6, false) == [
       "000000", "000001", "000010", "000011", "000100", "000101", "000110", "000111",
       "001000", "001001", "001010", "001011", "001100", "001101", "001110", "001111",
       "010000", "010001", "010010", "010011", "010100", "010101", "010110", "010111",
@@ -166,7 +173,7 @@ unittest {
   assert(getNrHaplotypesFromFile("/tmp/nrHaplotypesTest.txt") == 2);
 }
 
-SegSite_t[] readSegSites(string filename) {
+SegSite_t[] readSegSites(string filename, bool directedEmissions) {
   // format: chr, position, nr_calledSites, [alleles]
   // if no alleles are given, assume M=2 and "01"
   // alleles can be given as comma-separated list of alternative alleles
@@ -175,7 +182,7 @@ SegSite_t[] readSegSites(string filename) {
 
   auto M = getNrHaplotypesFromFile(filename);
   int obsMap[string];
-  auto allele_order = canonicalAlleleOrder(M);
+  auto allele_order = canonicalAlleleOrder(M, directedEmissions);
   auto index = 1; // index=0 indicates missing data 
   foreach(allele; allele_order) {
     obsMap[allele] = index;
@@ -225,7 +232,7 @@ SegSite_t[] readSegSites(string filename) {
         size_t[] allele_indices;
         foreach(allele_string; split(fields[3], ",")) {
           enforce(allele_string.length == M);
-          auto normalized = normalizeAlleleString(allele_string.idup);
+          auto normalized = directedEmissions ? allele_string : normalizeAlleleString(allele_string.idup);
           allele_indices ~= obsMap[normalized];
         }
         if(nrCalledSites < pos - lastPos) { // missing data
@@ -261,7 +268,7 @@ unittest {
   tmp_file.writeln("1 1000012 4 ACCG,TTGA");
   tmp_file.close();
 
-  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp");
+  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp", false);
   assert(segsites[0].pos == 1000000 && segsites[0].obs == [4]);
   assert(segsites[1].pos == 1000002 && segsites[1].obs == [0]);
   assert(segsites[3].pos == 1000005 && segsites[3].obs == [0]);
@@ -280,7 +287,7 @@ unittest {
   tmp_file.writeln("1 1000012 4 AA,TT");
   tmp_file.close();
 
-  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp");
+  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp", false);
   assert(segsites[0].pos == 1000000 && segsites[0].obs == [2]);
   assert(segsites[1].pos == 1000002 && segsites[1].obs == [0]);
   assert(segsites[3].pos == 1000005 && segsites[3].obs == [0]);

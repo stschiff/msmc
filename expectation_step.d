@@ -85,9 +85,9 @@ unittest {
   writeln("test expectation step");
   auto lambdaVec = new double[12];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4, false);
   auto fileName = "model/hmm_testData.txt";
-  auto data = readSegSites(fileName);
+  auto data = readSegSites(fileName, false);
   auto hmmStrideWidth = 100UL;
   
   auto allData = [data, data, data];

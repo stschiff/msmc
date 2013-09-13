@@ -60,7 +60,7 @@ class PropagationCoreFast : PropagationCore {
     this.msmc = msmc;
     enforce(maxDistance > 0);
 
-    auto allele_order = canonicalAlleleOrder(msmc.nrHaplotypes);
+    auto allele_order = canonicalAlleleOrder(msmc.nrHaplotypes, msmc.emissionRate.directedEmissions);
     
     emissionProbs = new double[][][](msmc.nrTtotIntervals, allele_order.length + 1, msmc.nrStates);
     foreach(tt; 0 .. msmc.nrTtotIntervals) {
@@ -424,7 +424,7 @@ unittest {
   import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   
   auto maxDist = 10U;
@@ -465,7 +465,7 @@ unittest {
   import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   auto propagationCoreNaive = new PropagationCoreNaive(msmc, 10);
   auto propagationCoreFast = new PropagationCoreFast(msmc, 10);
@@ -512,7 +512,7 @@ unittest {
   import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   auto propagationCoreNaive = new PropagationCoreNaive(msmc, 10);
   auto propagationCoreFast = new PropagationCoreFast(msmc, 10);

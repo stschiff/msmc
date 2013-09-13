@@ -29,112 +29,69 @@ import model.triple_index;
 class EmissionRate {
   size_t nrHaplotypes;
   double mu;
+  bool directedEmissions;
   
-  this(size_t nrHaplotypes, double mu) {
+  this(size_t nrHaplotypes, double mu, bool directedEmissions) {
     enforce(mu > 0, "need positive mutation rate");
     enforce(nrHaplotypes >= 2, "need at least two haplotypes");
     this.mu = mu;
     this.nrHaplotypes = nrHaplotypes;
+    this.directedEmissions = directedEmissions;
   }
   
-  // enum Observation_t {NoMut, SingleElsewhere, MultiElsewhere, SingleInPair, DoubleMut}
-  // 
-  // Observation_t emissionType(string alleles, size_t ind1, size_t ind2) const
-  //   in {
-  //     assert(ind2 > ind1);
-  //   }
-  // body {
-  //   if(alleles[ind1] == alleles[ind2])
-  //     return emissionTypeHomInPair(alleles, ind1, ind2);
-  //   else
-  //     return emissionTypeHetInPair(alleles, ind1, ind2);
-  // }
-  // 
-
   int getEmissionId(string alleles, size_t ind1, size_t ind2) const {
+    if(!directedEmissions) {
+      auto count_0 = count(alleles, '0');
+      auto count_1 = nrHaplotypes - count_0;
+      if(count_0 == 0 || count_1 == 0)
+        return 0;
+      if(count_0 == 1 || count_1 == 1) {
+        if(alleles[ind1] != alleles[ind2])
+          return 1;
+        else
+          return cast(int)nrHaplotypes - 1;
+      }
+      else {
+        if(alleles[ind1] != alleles[ind2])
+          return -1;
+        else
+          return cast(int)count(alleles, alleles[ind1]);
+      }
+    }
+    else {
+      return getEmissionIdDirected(alleles, ind1, ind2);
+    }
+  }
+  
+  int getEmissionIdDirected(string alleles, size_t ind1, size_t ind2) const {
     auto count_0 = count(alleles, '0');
     auto count_1 = nrHaplotypes - count_0;
-    if(count_0 == 0 || count_1 == 0)
+    if(count_1 == 0)
       return 0;
-    if(count_0 == 1 || count_1 == 1) {
+    if(count_1 == 1) {
       if(alleles[ind1] != alleles[ind2])
         return 1;
       else
-        return cast(int)nrHaplotypes - 1;
+        return cast(int)nrHaplotypes;
     }
-    else {
-      if(alleles[ind1] != alleles[ind2])
-        return -1;
-      else
-        return cast(int)count(alleles, alleles[ind1]);
-    }
+    if(alleles[ind1] != alleles[ind2])
+      return -1;
+    if(alleles[ind1] == '1')
+      return cast(int)count_1;
+    else
+      return cast(int)(nrHaplotypes + count_1 - 1);
   }
   
-  
-  // private Observation_t emissionTypeHomInPair(string alleles, size_t ind1, size_t ind2) const {
-  //   auto count_0 = count(alleles, '0');
-  //   auto count_1 = alleles.length - count_0;
-  //   if(count_0 == 0 || count_1 == 0)
-  //     return Observation_t.NoMut;
-  //   if(count_0 == 1 || count_1 == 1)
-  //     return Observation_t.SingleElsewhere;
-  //   if(count_0 > 1 && count_1 > 1)
-  //     return Observation_t.MultiElsewhere;
-  //   assert(false);
-  // }
-  // 
-  // private Observation_t emissionTypeHetInPair(string alleles, size_t ind1, size_t ind2) const {
-  //   auto count_0 = count(alleles, '0');
-  //   auto count_1 = alleles.length - count_0;
-  //   if(count_0 > 1 && count_1 > 1)
-  //     return Observation_t.DoubleMut;
-  //   return Observation_t.SingleInPair;
-  // }
-  // 
-
-  // double emissionProb(Observation_t flag, double t, double tLeaf) const {
-  //   if(nrHaplotypes == 2) {
-  //     if(flag == Observation_t.NoMut)
-  //       return exp(-2.0 * mu * t);
-  //     else
-  //       return 1.0 - exp(-2.0 * mu * t);
-  //   }
-  //   
-  //   if(t * nrHaplotypes > tLeaf)
-  //     tLeaf = t * nrHaplotypes;
-  //   
-  //   // tLeaf contains all singleton probabilities, plus all (M-1)tuples
-  //   auto tTot = tLeaf + 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
-  //   
-  //   double ret;
-  //   final switch(flag) {
-  //     case Observation_t.DoubleMut:
-  //     ret = 0.0;
-  //     break;
-  //     case Observation_t.NoMut:
-  //     ret = exp(-mu * tTot);
-  //     break;
-  //     case Observation_t.SingleInPair:
-  //     ret = (1.0 - exp(-mu * tTot)) * t / tTot;
-  //     break;
-  //     case Observation_t.SingleElsewhere:
-  //     ret = (1.0 - exp(-mu * tTot)) * (tLeaf - 2.0 * t) / tTot / (2.0 * (nrHaplotypes - 2.0));
-  //     break;
-  //     case Observation_t.MultiElsewhere:
-  //     ret = (1.0 - exp(-mu * tTot)) * (tTot - tLeaf) / (2.0 * (2.0 ^^ (nrHaplotypes - 2) - (nrHaplotypes - 2.0) - 1.0)) / tTot;
-  //     // auto val = 2.0 / (nrHaplotypes - 1.0); // doubleton in pair
-  //     // auto cnt = 1.0;
-  //     // foreach(k; 2 .. nrHaplotypes - 1) {
-  //     //   val += 2.0 / k;
-  //     //   cnt += binomial(nrHaplotypes - 1, k);
-  //     // }
-  //     // return (1.0 - exp(-mu * tTot)) * val / tTot / cnt;
-  //     break;
-  //   }
-  //   return ret;
-  // }
+  size_t getNrEmissionIds() const {
+    if(directedEmissions)
+      return 2 * nrHaplotypes - 2;
+    else
+      return nrHaplotypes;
+  }
   
   double emissionProb(int emissionId, double t, double tLeaf) const {
+    if(directedEmissions)
+      return emissionProbDirected(emissionId, t, tLeaf);
     if(nrHaplotypes == 2) {
       if(emissionId == 0)
         return exp(-2.0 * mu * t);
@@ -172,7 +129,42 @@ class EmissionRate {
       return (1.0 - exp(-mu * tTot)) * 2.0 * (tTot - tLeaf) / tTot / num;
     }
   }
-  
+
+  double emissionProbDirected(int emissionId, double t, double tLeaf) const {
+    if(nrHaplotypes == 2) {
+      if(emissionId == 0)
+        return exp(-2.0 * mu * t);
+      else
+        return 1.0 - exp(-2.0 * mu * t);
+    }
+    
+    auto tLower = t * nrHaplotypes;
+    if(tLeaf < tLower)
+      tLeaf = tLower;
+
+    auto tLeafUpper = tLeaf - tLower;
+    auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
+    tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
+    auto tTot = tLower + tUpper;
+    
+    if(emissionId < 0)
+      return 0.0;
+    if(emissionId == 0) {
+      return exp(-mu * tTot);
+    }
+    if(emissionId == 1)
+      return (1.0 - exp(-mu * tTot)) * t / tTot;
+    if(emissionId == nrHaplotypes)
+      return (1.0 - exp(-mu * tTot)) * (tLeaf - 2.0 * t) / tTot / (nrHaplotypes - 2.0);
+    else {
+      if(emissionId < nrHaplotypes)
+        return (1.0 - exp(-mu * tTot)) * mutationTreeLength(nrHaplotypes - 1, emissionId - 1) / tTot;
+      else {
+        auto freq = emissionId - nrHaplotypes + 1;
+        return (1.0 - exp(-mu * tTot)) * mutationTreeLength(nrHaplotypes - 1, freq) / tTot;
+      }
+    }
+  }
 }
 
 double mutationTreeLength(size_t m, size_t freq)
@@ -208,7 +200,7 @@ unittest {
 
 unittest {
   writeln("test emissionRate.emissionType");
-  auto emissionRate = new EmissionRate(4, 0.01);
+  auto emissionRate = new EmissionRate(4, 0.01, false);
   assert(emissionRate.getEmissionId("0000", 0, 1) == 0);
   assert(emissionRate.getEmissionId("0001", 0, 1) == 3);
   assert(emissionRate.getEmissionId("0011", 0, 1) == 2);
@@ -219,7 +211,7 @@ unittest {
 
 unittest {
   writeln("test emissionRate.emissionProb");
-  auto emissionRate = new EmissionRate(4, 0.01);
+  auto emissionRate = new EmissionRate(4, 0.01, false);
   assert(emissionRate.emissionProb(-1, 1.0, 2.0) == 0.0);
   assert(emissionRate.emissionProb(-1, 0.0, 2.0) == 0.0);
   assert(emissionRate.emissionProb(-1, 0.5, 2.0) == 0.0);

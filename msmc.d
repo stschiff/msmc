@@ -50,6 +50,7 @@ auto memory = false;
 auto naiveImplementation = false;
 auto fixedPopSize = false;
 auto fixedRecombination = false;
+bool directedEmissions = false;
 string[] inputFileNames;
 size_t hmmStrideWidth = 1000;
 double[] lambdaVec;
@@ -74,6 +75,7 @@ auto helpString = "Usage: msmc [options] <datafiles>
           coming from each subpopulation, set this to 0,0,1,1
     -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
     -v, --verbose: write out the expected number of transition matrices (into a separate file)
+    -d, --directedEmissions: use directed Emissions model, using knowledge of the ancestral allele.
     --naiveImplementation: use naive HMM implementation [for debugging only]
     --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed [not recommended]
     --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [default=1000]
@@ -135,6 +137,7 @@ void parseCommandLine(string[] args) {
       "nrTtotSegments|T", &nrTtotSegments,
       "verbose|v", &verbose,
       "outFilePrefix|o", &outFilePrefix,
+      "directedEmissions|d", &directedEmissions,
       "help|h", &displayHelpMessageAndExit,
       "naiveImplementation", &naiveImplementation,
       "hmmStrideWidth", &hmmStrideWidth,
@@ -182,6 +185,7 @@ void printGlobalParams() {
   logInfo(format("fixedPopSize:        %s\n", fixedPopSize));
   logInfo(format("fixedRecombination:  %s\n", fixedRecombination));
   logInfo(format("initialLambdaVec:    %s\n", lambdaVec));
+  logInfo(format("directedEmissions:   %s\n", directedEmissions));
   logInfo(format("logging information written to %s\n", logFileName));
   logInfo(format("loop information written to %s\n", loopFileName));
   logInfo(format("final results written to %s\n", finalFileName));
@@ -196,9 +200,10 @@ void inferDefaultSubpopLabels() {
 }
 
 void run() {
-  auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments);
+  auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, directedEmissions);
   
-  auto inputData = readDataFromFiles(inputFileNames);
+  
+  auto inputData = readDataFromFiles(inputFileNames, directedEmissions);
   
   auto cnt = 0;
   foreach(data; taskPool.parallel(inputData)) {
@@ -228,10 +233,10 @@ void run() {
   printFinal(finalFileName, params);
 }
 
-SegSite_t[][] readDataFromFiles(string[] filenames) {
+SegSite_t[][] readDataFromFiles(string[] filenames, bool directedEmissions) {
   SegSite_t[][] ret;
   foreach(filename; filenames) {
-    auto data = readSegSites(filename);
+    auto data = readSegSites(filename, directedEmissions);
     logInfo(format("read %s SNPs from file %s\n", data.length, filename));
     ret ~= data;
   }
