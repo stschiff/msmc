@@ -60,7 +60,7 @@ class PropagationCoreFast : PropagationCore {
     this.msmc = msmc;
     enforce(maxDistance > 0);
 
-    auto allele_order = canonicalAlleleOrder(msmc.nrHaplotypes, msmc.emissionRate.directedEmissions);
+    auto allele_order = canonicalAlleleOrder(msmc.nrHaplotypes);
     
     emissionProbs = new double[][][](msmc.nrTtotIntervals, allele_order.length + 1, msmc.nrStates);
     foreach(tt; 0 .. msmc.nrTtotIntervals) {

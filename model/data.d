@@ -57,42 +57,22 @@ class SegSite_t {
   }
 }
 
-string[] canonicalAlleleOrder(size_t M, bool directedEmissions) {
+string[] canonicalAlleleOrder(size_t M) {
   // we group observations into pairs of strings of two alleles {0,1} which are synonymous with respect to exchanging 0 and 1. For example, we group together the pair [000, 111] or [101, 010]. We denote each group by the version of the string which begins with 0.
   
   string[] allele_order;
   assert(M >= 2);
   auto formatStr = format("%%0%db", M);
-  if(directedEmissions) {
-    foreach(i; 0 .. 2 ^^ M) {
-      allele_order ~= format(formatStr, i);
-    }
-  }
-  else {
-    foreach(i; 0 .. 2 ^^ (M - 1)) {
-      allele_order ~= format(formatStr, i);
-    }
+  foreach(i; 0 .. 2 ^^ M) {
+    allele_order ~= format(formatStr, i);
   }
   return allele_order;
 }
 
 unittest {
   writeln("test canonicalAlleleOrder");
-  assert(canonicalAlleleOrder(2, false) == ["00", "01"]);
-  assert(canonicalAlleleOrder(3, false) == ["000", "001", "010", "011"]);
-  assert(canonicalAlleleOrder(4, false) == [
-      "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111"
-    ]);
-  assert(canonicalAlleleOrder(5, false) == [
-      "00000", "00001", "00010", "00011", "00100", "00101", "00110", "00111",
-      "01000", "01001", "01010", "01011", "01100", "01101", "01110", "01111"
-    ]);
-  assert(canonicalAlleleOrder(6, false) == [
-      "000000", "000001", "000010", "000011", "000100", "000101", "000110", "000111",
-      "001000", "001001", "001010", "001011", "001100", "001101", "001110", "001111",
-      "010000", "010001", "010010", "010011", "010100", "010101", "010110", "010111",
-      "011000", "011001", "011010", "011011", "011100", "011101", "011110", "011111"
-    ]);
+  assert(canonicalAlleleOrder(2) == ["00", "01", "10", "11"]);
+  assert(canonicalAlleleOrder(3) == ["000", "001", "010", "011", "100", "101", "110", "111"]);
 }
 
 string invertAllele(string allele) {
@@ -182,11 +162,10 @@ SegSite_t[] readSegSites(string filename, bool directedEmissions) {
 
   auto M = getNrHaplotypesFromFile(filename);
   int obsMap[string];
-  auto allele_order = canonicalAlleleOrder(M, directedEmissions);
+  auto allele_order = canonicalAlleleOrder(M);
   auto index = 1; // index=0 indicates missing data 
   foreach(allele; allele_order) {
     obsMap[allele] = index;
-    obsMap[invertAllele(allele)] = index; // symmetrizing states: 1101 is the same as 0010 !
     ++index;
   }
   

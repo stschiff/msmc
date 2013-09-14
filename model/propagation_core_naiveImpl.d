@@ -44,7 +44,7 @@ class PropagationCoreNaive : PropagationCore {
     enforce(maxDistance > 0);
     this.msmc = msmc;
       
-    auto allele_order = canonicalAlleleOrder(msmc.nrHaplotypes, msmc.emissionRate.directedEmissions);
+    auto allele_order = canonicalAlleleOrder(msmc.nrHaplotypes);
     forwardPropagators = new gsl_matrix*[][](msmc.nrTtotIntervals, maxDistance);
     backwardPropagators = new gsl_matrix*[][](msmc.nrTtotIntervals, maxDistance);
     emissionProbs = new gsl_vector*[][](msmc.nrTtotIntervals, allele_order.length + 1);

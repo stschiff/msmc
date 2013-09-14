@@ -120,13 +120,13 @@ class EmissionRate {
     if(emissionId == nrHaplotypes - 1)
       return (1.0 - exp(-mu * tTot)) * (tLeaf - 2.0 * t) / tTot / (nrHaplotypes - 2.0);
     else {
-      // return (1.0 - exp(-mu * tTot)) * 0.5 * (mutationTreeLength(nrHaplotypes - 1, emissionId - 1) + 
-      //                                         mutationTreeLength(nrHaplotypes - 1, emissionId)) / tTot;
-      auto num = 1.0 + 1.0;
-      if(nrHaplotypes > 4)
-        foreach(k; 2 .. nrHaplotypes - 2)
-          num += binomial(nrHaplotypes - 1, k);
-      return (1.0 - exp(-mu * tTot)) * 2.0 * (tTot - tLeaf) / tTot / num;
+      return (1.0 - exp(-mu * tTot)) * (mutationTreeLength(nrHaplotypes - 1, emissionId - 1) + 
+                                        mutationTreeLength(nrHaplotypes - 1, emissionId)) / tTot;
+      // auto num = 1.0 + 1.0;
+      // if(nrHaplotypes > 4)
+      //   foreach(k; 2 .. nrHaplotypes - 2)
+      //     num += binomial(nrHaplotypes - 1, k);
+      // return (1.0 - exp(-mu * tTot)) * 2.0 * (tTot - tLeaf) / tTot / num;
     }
   }
 

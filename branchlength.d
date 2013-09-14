@@ -83,7 +83,7 @@ private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
   
 private MSMC_hmm buildHMM(SegSite_t[] inputData, size_t nrHaplotypes, PropagationCoreFast propagationCore) {
   SegSite_t[] dummyInputData;
-  auto alleles = canonicalAlleleOrder(nrHaplotypes, propagationCore.msmc.emissionRate.directedEmissions);
+  auto alleles = canonicalAlleleOrder(nrHaplotypes);
   foreach(s; inputData) {
     auto dummySite = s.dup;
     if(s.obs.any!"a>1"()) {
