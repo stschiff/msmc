@@ -308,7 +308,7 @@ unittest {
   
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   
   auto propagationCoreNaive = new PropagationCoreNaive(params, 100);
@@ -316,7 +316,7 @@ unittest {
 
   auto nrS = propagationCoreFast.getMSMC.nrStates;
   
-  auto data = readSegSites("model/hmm_testData.txt");
+  auto data = readSegSites("model/hmm_testData.txt", false);
   
   auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, data);
   auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, data);

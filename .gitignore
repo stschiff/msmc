@@ -4,3 +4,4 @@ build/
 tmp/
 code_coverage/
 push_release_ftp.sh
+run_scripts/

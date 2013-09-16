@@ -28,6 +28,7 @@ import model.data;
 import model.time_intervals;
 import model.msmc_model;
 import model.propagation_core_fastImpl;
+import branchlength;
 
 double mutationRate, recombinationRate;
 size_t nrTimeSegments=40, nrTtotSegments=40, stride=1000;
@@ -95,7 +96,7 @@ MSMC_hmm makeTtotHmm() {
   auto propagationCore = new PropagationCoreFast(model, 1000);
 
   stderr.writeln("loading file ", inputFileName);
-  auto segsites = readSegSites(inputFileName, nrHaplotypes, propagationCore.msmc.tTotIntervals);
+  auto segsites = readSegSites(inputFileName);
   foreach(ref s; segsites) {
     if(s.obs.length > 1 || s.obs[0] > 1)
       s.obs = [2];
@@ -114,9 +115,12 @@ MSMC_hmm makeStandardHmm() {
 
   stderr.writeln("generating propagation core");
   auto propagationCore = new PropagationCoreFast(model, 1000);
+  
+  auto segsites = readSegSites(inputFileName);
+  estimateTotalBranchlengths(segsites, model, 40);
 
   stderr.writeln("generating Hidden Markov Model");
-  return new MSMC_hmm(propagationCore, inputFileName);
+  return new MSMC_hmm(propagationCore, segsites);
 }
 
 void decodeWithHmm(MSMC_hmm hmm) {

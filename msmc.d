@@ -30,6 +30,7 @@ import std.typecons;
 import std.regex;
 import std.exception;
 import std.c.stdlib;
+import std.range;
 import model.data;
 import model.msmc_model;
 import expectation_step;
@@ -44,14 +45,14 @@ size_t[] subpopLabels;
 auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 uint nrThreads;
 auto nrTtotSegments = 10UL;
-auto nrTtotInternal = 40UL;
 auto verbose = false;
 string outFilePrefix;
 auto memory = false;
 auto naiveImplementation = false;
 auto fixedPopSize = false;
 auto fixedRecombination = false;
-string[] inputFileNames;
+bool directedEmissions = false;
+string[] inputFileNames, treeFileNames;
 size_t hmmStrideWidth = 1000;
 double[] lambdaVec;
 size_t nrTimeSegments;
@@ -61,38 +62,24 @@ string logFileName, loopFileName, finalFileName;
 auto helpString = "Usage: msmc [options] <datafiles>
   Options:
     -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
-
     -o, --outFilePrefix=<string> : file prefix to use for all output files
-
     -m, --mutationRate=<double> : mutation rate, scaled by 2N. In case of more than two haplotypes, this needs to be 
           the same as was used in running \"msmc branchlength\".
-
     -r, --recombinationRate=<double> : recombination rate, scaled by 2N, to begin with
           [by default set to mutationRate / 4]. Recombination rate inference does not work very well for 
           more than two haplotypes. Using the -R option is recommended for more than 2 haplotypes.
-
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
-
     -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
-
     -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [default=10]
-
-    -O, --nrTtotInternal=<size_t> : number of states used for the Ttot-HMM [default=40]
-
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
           number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
           coming from each subpopulation, set this to 0,0,1,1
-
     -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
-
     -v, --verbose: write out the expected number of transition matrices (into a separate file)
-
+    -d, --directedEmissions: use directed Emissions model, using knowledge of the ancestral allele.
     --naiveImplementation: use naive HMM implementation [for debugging only]
-
     --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed [not recommended]
-
     --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [default=1000]
-
     --initialLambdaVec <str> : comma-separated string of lambda-values to start with. This can be used to
       continue a previous run by copying the values in the last row and the third column of the corresponding
       *.loop file";
@@ -136,6 +123,10 @@ void parseCommandLine(string[] args) {
     lambdaVec = std.string.split(lambdaString, ",").map!"to!double(a)"().array();
   }
   
+  void handleTreeFileNames(string option, string value) {
+    treeFileNames = std.string.split(value, ",").array();
+  }
+  
   if(args.length == 1) {
     displayHelpMessageAndExit();
   }
@@ -149,15 +140,16 @@ void parseCommandLine(string[] args) {
       "timeSegmentPattern|p", &handleTimeSegmentPatternString,
       "nrThreads|t", &nrThreads,
       "nrTtotSegments|T", &nrTtotSegments,
-      "nrTtotInternal|O", &nrTtotInternal,
       "verbose|v", &verbose,
       "outFilePrefix|o", &outFilePrefix,
+      "directedEmissions|d", &directedEmissions,
       "help|h", &displayHelpMessageAndExit,
       "naiveImplementation", &naiveImplementation,
       "hmmStrideWidth", &hmmStrideWidth,
       "fixedPopSize", &fixedPopSize,
       "fixedRecombination|R", &fixedRecombination,
-      "initialLambdaVec", &handleLambdaVecString
+      "initialLambdaVec", &handleLambdaVecString,
+      "treeFileNames", &handleTreeFileNames
   );
   if(nrThreads)
     std.parallelism.defaultPoolThreads(nrThreads);
@@ -174,6 +166,7 @@ void parseCommandLine(string[] args) {
     lambdaVec = new double[nrTimeSegments];
     lambdaVec[] = 1.0;
   }
+  enforce(treeFileNames.length == 0 || treeFileNames.length == inputFileNames.length);
   enforce(lambdaVec.length == nrTimeSegments, "initialLambdaVec must have correct length");
   
   logFileName = outFilePrefix ~ ".log";
@@ -192,7 +185,6 @@ void printGlobalParams() {
   logInfo(format("timeSegmentPattern:  %s\n", timeSegmentPattern));
   logInfo(format("nrThreads:           %s\n", nrThreads == 0 ? totalCPUs : nrThreads));
   logInfo(format("nrTtotSegments:      %s\n", nrTtotSegments));
-  logInfo(format("nrTtotInternal:      %s\n", nrTtotInternal));
   logInfo(format("verbose:             %s\n", verbose));
   logInfo(format("outFilePrefix:       %s\n", outFilePrefix));
   logInfo(format("naiveImplementation: %s\n", naiveImplementation));
@@ -200,6 +192,7 @@ void printGlobalParams() {
   logInfo(format("fixedPopSize:        %s\n", fixedPopSize));
   logInfo(format("fixedRecombination:  %s\n", fixedRecombination));
   logInfo(format("initialLambdaVec:    %s\n", lambdaVec));
+  logInfo(format("directedEmissions:   %s\n", directedEmissions));
   logInfo(format("logging information written to %s\n", logFileName));
   logInfo(format("loop information written to %s\n", loopFileName));
   logInfo(format("final results written to %s\n", finalFileName));
@@ -214,14 +207,24 @@ void inferDefaultSubpopLabels() {
 }
 
 void run() {
-  auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments);
+  auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, directedEmissions);
   
-  auto inputData = readDataFromFiles(inputFileNames);
   
-  auto cnt = 0;
-  foreach(data; taskPool.parallel(inputData)) {
-    logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
-    estimateTotalBranchlengths(data, params, nrTtotInternal);
+  auto inputData = readDataFromFiles(inputFileNames, directedEmissions);
+  
+  if(treeFileNames.length == 0) {
+    auto cnt = 0;
+    foreach(i, data; taskPool.parallel(inputData)) {
+      logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+      estimateTotalBranchlengths(data, params);
+    }
+  }
+  else {
+    auto cnt = 0;
+    foreach(data; taskPool.parallel(zip(inputData, treeFileNames))) {
+      logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+      readTotalBranchlengths(data[0], params, data[1]);
+    }
   }
   logInfo("\n");
   
@@ -246,10 +249,10 @@ void run() {
   printFinal(finalFileName, params);
 }
 
-SegSite_t[][] readDataFromFiles(string[] filenames) {
+SegSite_t[][] readDataFromFiles(string[] filenames, bool directedEmissions) {
   SegSite_t[][] ret;
   foreach(filename; filenames) {
-    auto data = readSegSites(filename);
+    auto data = readSegSites(filename, directedEmissions);
     logInfo(format("read %s SNPs from file %s\n", data.length, filename));
     ret ~= data;
   }
