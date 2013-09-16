@@ -30,6 +30,7 @@ import std.typecons;
 import std.regex;
 import std.exception;
 import std.c.stdlib;
+import std.range;
 import model.data;
 import model.msmc_model;
 import expectation_step;
@@ -211,13 +212,19 @@ void run() {
   
   auto inputData = readDataFromFiles(inputFileNames, directedEmissions);
   
-  auto cnt = 0;
-  foreach(i, data; taskPool.parallel(inputData)) {
-    logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
-    if(treeFileNames.length > 0)
-      readTotalBranchlengths(data, params, treeFileNames[i]);
-    else
+  if(treeFileNames.length == 0) {
+    auto cnt = 0;
+    foreach(i, data; taskPool.parallel(inputData)) {
+      logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
       estimateTotalBranchlengths(data, params);
+    }
+  }
+  else {
+    auto cnt = 0;
+    foreach(data; taskPool.parallel(zip(inputData, treeFileNames))) {
+      logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+      readTotalBranchlengths(data[0], params, data[1]);
+    }
   }
   logInfo("\n");
   
