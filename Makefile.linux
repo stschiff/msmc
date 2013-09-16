@@ -2,26 +2,22 @@ msmc_src = model/emission_rate.d model/transition_rate.d \
 model/gsl_matrix_vector.d model/data.d model/time_intervals.d model/msmc_hmm.d model/propagation_core_naiveImpl.d \
 model/propagation_core.d model/rate_integrator.d model/coalescence_rate.d \
 model/triple_index_marginal.d model/triple_index.d model/msmc_model.d powell.d brent.d \
-model/propagation_core_fastImpl.d maximization_step.d expectation_step.d baumwelch.d inference.d msmc.d \
-amoeba.d expectation.d maximization.d stats.d \
-model/stateVec.d model/stateVecAllocator.d branchlength.d decode.d print.d
+model/propagation_core_fastImpl.d maximization_step.d expectation_step.d msmc.d \
+model/stateVec.d model/stateVecAllocator.d branchlength.d logger.d amoeba.d
 
 unittest_src = unittest.d model/emission_rate.d model/transition_rate.d \
 model/gsl_matrix_vector.d model/data.d model/time_intervals.d model/msmc_hmm.d model/propagation_core_naiveImpl.d \
 model/propagation_core.d model/rate_integrator.d model/coalescence_rate.d \
 model/triple_index_marginal.d model/triple_index.d model/msmc_model.d powell.d brent.d \
-model/propagation_core_fastImpl.d maximization_step.d expectation_step.d amoeba.d \
-model/stateVec.d model/stateVecAllocator.d
-
-all : unittest debug
-
-unittest :
-	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
-	build/unittest
+model/propagation_core_fastImpl.d maximization_step.d expectation_step.d model/stateVec.d model/stateVecAllocator.d logger.d amoeba.d
 
 debug : build/debug/msmc
 
 release : build/release/msmc
+
+unittest :
+	dmd -unittest ${unittest_src} -L-lgsl -L-lgslcblas -L-L/opt/local/lib -odbuild -ofbuild/unittest
+	build/unittest
 
 build/debug/msmc : ${msmc_src}
 	dmd ${msmc_src} -L-lgsl -L-lgslcblas -odbuild -ofbuild/debug/msmc
@@ -38,4 +34,4 @@ testcoverage :
 clean :
 	find build -type f -delete
 
-.PHONY : all unittest testcoverage clean
+.PHONY : unittest testcoverage clean
