@@ -118,14 +118,15 @@ class EmissionRate {
     if(emissionId == 1)
       return (1.0 - exp(-mu * tTot)) * t / tTot;
     if(emissionId == nrHaplotypes - 1)
-      return (1.0 - exp(-mu * tTot)) * (tLeaf - 2.0 * t) / tTot / (nrHaplotypes - 2.0);
+      return (1.0 - exp(-mu * tTot)) * ((tLeaf - t * nrHaplotypes) / (nrHaplotypes - 2.0) + t) / tTot;
     else {
-      return (1.0 - exp(-mu * tTot)) * (mutationTreeLength(nrHaplotypes - 1, emissionId - 1) + 
-                                        mutationTreeLength(nrHaplotypes - 1, emissionId)) / tTot;
+      auto freq = emissionId;
+      auto forbiddenStates = freq * (nrHaplotypes - freq);
+      auto nrStates = binomial(nrHaplotypes, freq);
+      return (1.0 - exp(-mu * tTot)) * (2.0 / freq + 2.0 / (nrHaplotypes - freq)) / (nrStates - forbiddenStates) / tTot;
       // auto num = 1.0 + 1.0;
-      // if(nrHaplotypes > 4)
-      //   foreach(k; 2 .. nrHaplotypes - 2)
-      //     num += binomial(nrHaplotypes - 1, k);
+      // foreach(k; 2 .. nrHaplotypes - 2)
+      //   num += binomial(nrHaplotypes - 1, k);
       // return (1.0 - exp(-mu * tTot)) * 2.0 * (tTot - tLeaf) / tTot / num;
     }
   }
@@ -155,14 +156,23 @@ class EmissionRate {
     if(emissionId == 1)
       return (1.0 - exp(-mu * tTot)) * t / tTot;
     if(emissionId == nrHaplotypes)
-      return (1.0 - exp(-mu * tTot)) * (tLeaf - 2.0 * t) / tTot / (nrHaplotypes - 2.0);
+      return (1.0 - exp(-mu * tTot)) * 0.5 * (tLeaf - t * 2.0) / tTot / (nrHaplotypes - 2.0);
     else {
-      if(emissionId < nrHaplotypes)
-        return (1.0 - exp(-mu * tTot)) * mutationTreeLength(nrHaplotypes - 1, emissionId - 1) / tTot;
-      else {
-        auto freq = emissionId - nrHaplotypes + 1;
-        return (1.0 - exp(-mu * tTot)) * mutationTreeLength(nrHaplotypes - 1, freq) / tTot;
-      }
+      auto freq = emissionId < nrHaplotypes ? emissionId : emissionId - nrHaplotypes + 1;
+      auto forbiddenStates = freq * (nrHaplotypes - freq);
+      auto nrStates = binomial(nrHaplotypes, freq);
+      return (1.0 - exp(-mu * tTot)) * 2.0 / freq / (nrStates - forbiddenStates) / tTot;
+      // auto num = 1.0;
+      // foreach(k; 2 .. nrHaplotypes - 1)
+      //   num += binomial(nrHaplotypes - 1, k);
+      // return (1.0 - exp(-mu * tTot)) * (tTot - tLeaf) / tTot / num;
+
+      // if(emissionId < nrHaplotypes)
+      //   return (1.0 - exp(-mu * tTot)) * mutationTreeLength(nrHaplotypes - 1, emissionId - 1) / tTot;
+      // else {
+      //   auto freq = emissionId - nrHaplotypes + 1;
+      //   return (1.0 - exp(-mu * tTot)) * mutationTreeLength(nrHaplotypes - 1, freq) / tTot;
+      // }
     }
   }
 }
