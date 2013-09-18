@@ -89,9 +89,9 @@ class EmissionRate {
       return nrHaplotypes;
   }
   
-  double emissionProb(int emissionId, double t, double tLeaf) const {
+  double emissionProb(int emissionId, double t, double tTot, double tLeaf) const {
     if(directedEmissions)
-      return emissionProbDirected(emissionId, t, tLeaf);
+      return emissionProbDirected(emissionId, t, tTot, tLeaf);
     if(nrHaplotypes == 2) {
       if(emissionId == 0)
         return exp(-2.0 * mu * t);
@@ -103,12 +103,12 @@ class EmissionRate {
     if(tLeaf < tLower)
       tLeaf = tLower;
 
-    auto tLeafUpper = tLeaf - tLower;
-    auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1) +
-                  mutationTreeLength(nrHaplotypes - 1, nrHaplotypes - 2);
-    if(nrHaplotypes > 4)
-      tUpper += 2.0 * iota(2, nrHaplotypes - 2).map!"1.0/a"().reduce!"a+b"();
-    auto tTot = tLower + tUpper;
+    // auto tLeafUpper = tLeaf - tLower;
+    // auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1) +
+    //               mutationTreeLength(nrHaplotypes - 1, nrHaplotypes - 2);
+    // if(nrHaplotypes > 4)
+    //   tUpper += 2.0 * iota(2, nrHaplotypes - 2).map!"1.0/a"().reduce!"a+b"();
+    // auto tTot = tLower + tUpper;
     
     if(emissionId < 0)
       return 0.0;
@@ -129,40 +129,6 @@ class EmissionRate {
     }
   }
 
-  double emissionProbDirected(int emissionId, double t, double tLeaf) const {
-    if(nrHaplotypes == 2) {
-      if(emissionId == 0)
-        return exp(-2.0 * mu * t);
-      else
-        return 1.0 - exp(-2.0 * mu * t);
-    }
-    
-    auto tLower = t * nrHaplotypes;
-    if(tLeaf < tLower)
-      tLeaf = tLower;
-  
-    auto tLeafUpper = tLeaf - tLower;
-    auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
-    tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
-    auto tTot = tLower + tUpper;
-    
-    if(emissionId < 0)
-      return 0.0;
-    if(emissionId == 0) {
-      return exp(-mu * tTot);
-    }
-    if(emissionId == 1)
-      return (1.0 - exp(-mu * tTot)) * t / tTot;
-    if(emissionId == nrHaplotypes)
-      return (1.0 - exp(-mu * tTot)) * (tLeaf - t * 2.0) / tTot / (nrHaplotypes - 2.0);
-    else {
-      auto freq = emissionId < nrHaplotypes ? emissionId : emissionId - nrHaplotypes + 1;
-      auto forbiddenStates = freq * (nrHaplotypes - freq);
-      auto nrStates = binomial(nrHaplotypes, freq);
-      return (1.0 - exp(-mu * tTot)) * 2.0 / freq / (nrStates - forbiddenStates) / tTot;
-    }
-  }
-
   // double emissionProbDirected(int emissionId, double t, double tLeaf) const {
   //   if(nrHaplotypes == 2) {
   //     if(emissionId == 0)
@@ -171,37 +137,55 @@ class EmissionRate {
   //       return 1.0 - exp(-2.0 * mu * t);
   //   }
   //   
-  //   // auto tLower = t * nrHaplotypes;
-  //   // if(tLeaf < tLower)
-  //   //   tLeaf = tLower;
-  //   // 
-  //   // auto tLeafUpper = tLeaf - tLower;
-  //   // auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
-  //   // tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
-  //   // auto tTot = tLower + tUpper;
+  //   auto tLower = t * nrHaplotypes;
+  //   if(tLeaf < tLower)
+  //     tLeaf = tLower;
   // 
-  //   if(tLeaf < 2.0 * t)
-  //     tLeaf = 2.0 * t;
+  //   auto tLeafUpper = tLeaf - tLower;
+  //   auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
+  //   tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
+  //   auto tTot = tLower + tUpper;
   //   
-  //   // if(emissionId < 0)
-  //   //   return 0.0;
-  //   if(emissionId <= 0) {
-  //     return 1.0 - mu * tLeaf;
+  //   if(emissionId < 0)
+  //     return 0.0;
+  //   if(emissionId == 0) {
+  //     return exp(-mu * tTot);
   //   }
   //   if(emissionId == 1)
-  //     return mu * t;
-  //   if(emissionId == nrHaplotypes) {
-  //     return mu * (tLeaf - t * 2.0) / (nrHaplotypes - 2.0);
-  //     // return mu * tLeaf / nrHaplotypes;
-  //   }
+  //     return (1.0 - exp(-mu * tTot)) * t / tTot;
+  //   if(emissionId == nrHaplotypes)
+  //     return (1.0 - exp(-mu * tTot)) * (tLeaf - t * 2.0) / tTot / (nrHaplotypes - 2.0);
   //   else {
   //     auto freq = emissionId < nrHaplotypes ? emissionId : emissionId - nrHaplotypes + 1;
   //     auto forbiddenStates = freq * (nrHaplotypes - freq);
   //     auto nrStates = binomial(nrHaplotypes, freq);
-  //     // return mu * 2.0 / freq / (nrStates - forbiddenStates);
-  //     return 1.0 - mu * tLeaf;
+  //     return (1.0 - exp(-mu * tTot)) * 2.0 / freq / (nrStates - forbiddenStates) / tTot;
   //   }
   // }
+
+  double emissionProbDirected(int emissionId, double t, double tTot, double tLeaf) const {
+    if(nrHaplotypes == 2) {
+      if(emissionId == 0)
+        return exp(-2.0 * mu * t);
+      else
+        return 1.0 - exp(-2.0 * mu * t);
+    }
+    
+    if(emissionId <= 0) {
+      return 1.0 - mu * tTot;
+    }
+    if(emissionId == 1)
+      return mu * t;
+    if(emissionId == nrHaplotypes) {
+      if(tLeaf < t)
+        tLeaf = t;
+      return mu * tLeaf;
+    }
+    else {
+      return 1.0 - mu * tTot;
+    }
+  }
+
 }
 
 double mutationTreeLength(size_t m, size_t freq)
@@ -249,22 +233,22 @@ unittest {
 unittest {
   writeln("test emissionRate.emissionProb");
   auto emissionRate = new EmissionRate(4, 0.01, false);
-  assert(emissionRate.emissionProb(-1, 1.0, 2.0) == 0.0);
-  assert(emissionRate.emissionProb(-1, 0.0, 2.0) == 0.0);
-  assert(emissionRate.emissionProb(-1, 0.5, 2.0) == 0.0);
-  assert(emissionRate.emissionProb(-1, 1.5, 2.0) == 0.0);
-  assert(emissionRate.emissionProb(0, 1.0, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(0, 1.0, 2.0) < 1.0);
-  assert(emissionRate.emissionProb(0, 0.0, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(0, 0.0, 2.0) < 1.0);
-  assert(emissionRate.emissionProb(0, 0.5, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(0, 0.5, 2.0) < 1.0);
-  assert(emissionRate.emissionProb(0, 1.5, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(0, 1.5, 2.0) < 1.0);
-  assert(emissionRate.emissionProb(2, 0.0, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(2, 0.0, 2.0) < 1.0);
-  assert(emissionRate.emissionProb(2, 0.5, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(2, 0.5, 2.0) < 1.0);
-  assert(emissionRate.emissionProb(1, 0.5, 2.0) > 0.0);
-  assert(emissionRate.emissionProb(1, 0.5, 2.0) < 1.0);
+  assert(emissionRate.emissionProb(-1, 1.0, 2.0, 0.0) == 0.0);
+  assert(emissionRate.emissionProb(-1, 0.0, 2.0, 0.0) == 0.0);
+  assert(emissionRate.emissionProb(-1, 0.5, 2.0, 0.0) == 0.0);
+  assert(emissionRate.emissionProb(-1, 1.5, 2.0, 0.0) == 0.0);
+  assert(emissionRate.emissionProb(0, 1.0, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(0, 1.0, 2.0, 0.0) < 1.0);
+  assert(emissionRate.emissionProb(0, 0.0, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(0, 0.0, 2.0, 0.0) < 1.0);
+  assert(emissionRate.emissionProb(0, 0.5, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(0, 0.5, 2.0, 0.0) < 1.0);
+  assert(emissionRate.emissionProb(0, 1.5, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(0, 1.5, 2.0, 0.0) < 1.0);
+  assert(emissionRate.emissionProb(2, 0.0, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(2, 0.0, 2.0, 0.0) < 1.0);
+  assert(emissionRate.emissionProb(2, 0.5, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(2, 0.5, 2.0, 0.0) < 1.0);
+  assert(emissionRate.emissionProb(1, 0.5, 2.0, 0.0) > 0.0);
+  assert(emissionRate.emissionProb(1, 0.5, 2.0, 0.0) < 1.0);
 }

@@ -56,7 +56,7 @@ class PropagationCoreNaive : PropagationCore {
           if(i == 0)
             gsl_vector_set(emissionProbs[tt][i], aij, 1.0); // missing data
           else
-            gsl_vector_set(emissionProbs[tt][i], aij, msmc.emissionProb(allele_order[i - 1], aij, tt));
+            gsl_vector_set(emissionProbs[tt][i], aij, msmc.emissionProb(allele_order[i - 1], aij, tt, 0));
         }
       }
     }

@@ -110,15 +110,40 @@ private MSMC_hmm buildHMM(SegSite_t[] inputData, size_t nrHaplotypes, Propagatio
 
 void readTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, string treeFileName) {
   auto simTreeParser = new SimTreeParser(treeFileName, params.nrTtotIntervals);
+  auto allele_order = canonicalAlleleOrder(params.nrHaplotypes);
   foreach(ref segsite; inputData) {
-    auto t = simTreeParser.getTtot(segsite.pos);
-    segsite.i_Ttot = params.tTotIntervals.findIntervalForTime(t);
+    auto alleles = allele_order[segsite.obs[0] - 1];
+    auto tTot = simTreeParser.getTLeafTot(segsite.pos);
+    segsite.i_Ttot = params.tTotIntervals.findIntervalForTime(tTot);
+    if(count(alleles, '1') == 1) {
+      auto i = findDerivedPositition(alleles);
+      auto tLeaf = simTreeParser.getTLeaf(segsite.pos, i);
+      segsite.i_Tleaf = params.tSingleIntervals.findIntervalForTime(tLeaf);
+    }
   }
 }
 
+size_t findDerivedPositition(string alleles) {
+  auto pos = 0UL;
+  foreach(i, a; alleles) {
+    if(a == '1') {
+      pos = i;
+      break;
+    }
+  }
+  return pos;
+}
+
+unittest {
+  assert(findDerivedPositition("000100") == 3);
+  assert(findDerivedPositition("100000") == 0);
+  assert(findDerivedPositition("000001") == 5);
+}
+
+
 class SimTreeParser {
   
-  Tuple!(size_t, double)[] data;
+  Tuple!(size_t, double, double[])[] data;
   size_t lastIndex;
   
   this(string treeFileName, size_t nrTtotSegments) {
@@ -129,13 +154,19 @@ class SimTreeParser {
       auto fields = line.strip().split();
       auto l = fields[0].to!size_t;
       auto str = fields[1];
-      auto tTot = getTotLeafLength(str);
+      auto tLeaflengths = getLeafLengths(str);
+      auto tLeafTot = tLeaflengths.reduce!"a+b"();
       pos += l;
-      data ~= tuple(pos, tTot);
+      data ~= tuple(pos, tLeafTot, tLeaflengths);
     }
   }
   
-  double getTtot(size_t pos) {
+  double getTLeaf(size_t pos, size_t i) {
+    auto index = getIndex(pos);
+    return data[index][2][i];
+  }
+
+  double getTLeafTot(size_t pos) {
     auto index = getIndex(pos);
     return data[index][1];
   }
@@ -165,3 +196,29 @@ unittest {
   assert(approxEqual(getTotLeafLength(tree), 2.0 * 18.13, 0.0001, 0.0));
 }
 
+double[] getLeafLengths(in char[] str) {
+  static auto tTotRegex = regex(r"(\d+):([\d+\.e-]+)", "g");
+
+  double[] ret;
+  auto matches = match(str, tTotRegex);
+  foreach(match; matches) {
+    auto i = match.captures[1].to!size_t();
+    auto t = 2.0 * match.captures[2].to!double();
+    if(i >= ret.length)
+      ret.length = i + 1;
+    ret[i] = t;
+  }
+  return ret;
+}
+
+unittest {
+  auto tree = "((((2:8.3,1:8.3):0.122683,(0:0.11,3:0.11):0.00415405):0.00462688,4:0.12):1.06837,5:1.19);";
+  auto leafLengths = getLeafLengths(tree);
+  assert(approxEqual(leafLengths[0], 0.22));
+  assert(approxEqual(leafLengths[1], 16.6));
+  assert(approxEqual(leafLengths[2], 16.6));
+  assert(approxEqual(leafLengths[3], 0.22));
+  assert(approxEqual(leafLengths[4], 0.24));
+  assert(approxEqual(leafLengths[5], 2.38));
+  assert(approxEqual(leafLengths.reduce!"a+b"(), getTotLeafLength(tree), 1e-8, 0.0));
+}

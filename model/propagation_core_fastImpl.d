@@ -68,8 +68,13 @@ class PropagationCoreFast : PropagationCore {
         foreach(aij; 0 .. msmc.nrStates) {
           if(i == 0)
             emissionProbs[tt][i][aij] = 1.0; // missing data
-          else
-            emissionProbs[tt][i][aij] = msmc.emissionProb(allele_order[i - 1], aij, tt);
+          else {
+            auto alleles = allele_order[i - 1];
+            if(count(alleles, '1') == 1)
+              emissionProbs[tt][i][aij] = msmc.emissionProb(allele_order[i - 1], aij, 0, tt);
+            else
+              emissionProbs[tt][i][aij] = msmc.emissionProb(allele_order[i - 1], aij, tt, 0);
+          }
         }
       }
     }
@@ -224,7 +229,10 @@ class PropagationCoreFast : PropagationCore {
   private double fullE(in SegSite_t segsite, size_t aij) const {
     double ret = 0.0;
     foreach(o; segsite.obs) {
-      ret += emissionProbs[segsite.i_Ttot][o][aij];
+      if(o - 1 == 1 || o - 1 == 2 || o - 1 == 4 || o - 1 == 8 || o - 1 == 16 || o - 1 == 32)
+        ret += emissionProbs[segsite.i_Tleaf][o][aij];
+      else
+        ret += emissionProbs[segsite.i_Ttot][o][aij];
     }
     ret /= cast(double)segsite.obs.length;
     return ret;
@@ -474,19 +482,19 @@ unittest {
     auto dist = 10;
     auto f = impl.newForwardState();
     auto fNext = impl.newForwardState();
-    auto dummy_site = new SegSite_t(1, 1, 2);
+    auto dummy_site = new SegSite_t(1, 1, 2, 0);
     impl.setState(f, 1.0, dummy_site);
     foreach(i; 0 .. dist) {
-      auto left_site = new SegSite_t(1 + i, 1, 2);
-      auto right_site = new SegSite_t(1 + i + 1, 1, 2);
+      auto left_site = new SegSite_t(1 + i, 1, 2, 0);
+      auto right_site = new SegSite_t(1 + i + 1, 1, 2, 0);
       impl.propagateSingleForward(f, fNext, left_site, right_site);
       fNext.copy_into(f);
     }
     auto fSingles = impl.newForwardState();
     f.copy_into(fSingles);
     impl.setState(f, 1.0, dummy_site);
-    auto left_site = new SegSite_t(1, 1, 2);
-    auto right_site = new SegSite_t(1 + dist, 1, 2);
+    auto left_site = new SegSite_t(1, 1, 2, 0);
+    auto right_site = new SegSite_t(1 + dist, 1, 2, 0);
     impl.propagateMultiForward(f, fNext, left_site, right_site);
     auto fSinglesA = fSingles.vec;
     auto fNextA = fNext.vec;
@@ -521,19 +529,19 @@ unittest {
     auto dist = 10;
     auto b = impl.newBackwardState();
     auto bNext = impl.newBackwardState();
-    auto dummy_site = new SegSite_t(dist + 1, 1, 2);
+    auto dummy_site = new SegSite_t(dist + 1, 1, 2, 0);
     impl.setState(b, 1.0, dummy_site);
     foreach(i; 0 .. dist) {
-      auto left_site = new SegSite_t(dist - i, 1, 2);
-      auto right_site = new SegSite_t(dist + 1 - i, 1, 2);
+      auto left_site = new SegSite_t(dist - i, 1, 2, 0);
+      auto right_site = new SegSite_t(dist + 1 - i, 1, 2, 0);
       impl.propagateSingleBackward(b, bNext, right_site, left_site);
       bNext.copy_into(b);
     }
     auto bSingles = impl.newBackwardState();
     b.copy_into(bSingles);
     impl.setState(b, 1.0, dummy_site);
-    auto left_site = new SegSite_t(1, 1, 2);
-    auto right_site = new SegSite_t(dist + 1, 1, 2);
+    auto left_site = new SegSite_t(1, 1, 2, 0);
+    auto right_site = new SegSite_t(dist + 1, 1, 2, 0);
     impl.propagateMultiBackward(b, bNext, right_site, left_site);
     auto bSinglesA = bSingles.vec;
     auto bNextA = bNext.vec;
