@@ -115,11 +115,6 @@ void readTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, string tree
     auto alleles = allele_order[segsite.obs[0] - 1];
     auto tTot = simTreeParser.getTLeafTot(segsite.pos);
     segsite.i_Ttot = params.tTotIntervals.findIntervalForTime(tTot);
-    if(count(alleles, '1') == 1) {
-      auto i = findDerivedPositition(alleles);
-      auto tLeaf = simTreeParser.getTLeaf(segsite.pos, i);
-      segsite.i_Tleaf = params.tSingleIntervals.findIntervalForTime(tLeaf);
-    }
   }
 }
 

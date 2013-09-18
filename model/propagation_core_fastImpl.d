@@ -68,13 +68,8 @@ class PropagationCoreFast : PropagationCore {
         foreach(aij; 0 .. msmc.nrStates) {
           if(i == 0)
             emissionProbs[tt][i][aij] = 1.0; // missing data
-          else {
-            auto alleles = allele_order[i - 1];
-            if(count(alleles, '1') == 1)
-              emissionProbs[tt][i][aij] = msmc.emissionProb(allele_order[i - 1], aij, 0, tt);
-            else
-              emissionProbs[tt][i][aij] = msmc.emissionProb(allele_order[i - 1], aij, tt, 0);
-          }
+          else
+            emissionProbs[tt][i][aij] = msmc.emissionProb(allele_order[i - 1], aij, tt);
         }
       }
     }

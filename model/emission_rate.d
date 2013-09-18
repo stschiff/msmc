@@ -89,9 +89,7 @@ class EmissionRate {
       return nrHaplotypes;
   }
   
-  double emissionProb(int emissionId, double t, double tTot, double tLeaf) const {
-    if(directedEmissions)
-      return emissionProbDirected(emissionId, t, tTot, tLeaf);
+  double emissionProb(int emissionId, double t, double tLeaf) const {
     if(nrHaplotypes == 2) {
       if(emissionId == 0)
         return exp(-2.0 * mu * t);
@@ -99,90 +97,16 @@ class EmissionRate {
         return 1.0 - exp(-2.0 * mu * t);
     }
     
-    auto tLower = t * nrHaplotypes;
-    if(tLeaf < tLower)
-      tLeaf = tLower;
+    if(tLeaf < t * nrHaplotypes)
+      tLeaf = t * nrHaplotypes;
 
-    // auto tLeafUpper = tLeaf - tLower;
-    // auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1) +
-    //               mutationTreeLength(nrHaplotypes - 1, nrHaplotypes - 2);
-    // if(nrHaplotypes > 4)
-    //   tUpper += 2.0 * iota(2, nrHaplotypes - 2).map!"1.0/a"().reduce!"a+b"();
-    // auto tTot = tLower + tUpper;
-    
-    if(emissionId < 0)
-      return 0.0;
-    if(emissionId == 0) {
-      return exp(-mu * tTot);
-    }
-    if(emissionId == 1)
-      return (1.0 - exp(-mu * tTot)) * t / tTot;
-    if(emissionId == nrHaplotypes - 1) {
-      // return (1.0 - exp(-mu * tTot)) * ((tLeaf - t * nrHaplotypes) / (nrHaplotypes - 2.0) + t) / tTot;
-      return (1.0 - exp(-mu * tTot)) * (tLeaf - t * 2.0) / (nrHaplotypes - 2.0) / tTot;
-    }
-    else {
-      auto freq = emissionId;
-      auto forbiddenStates = freq * (nrHaplotypes - freq);
-      auto nrStates = binomial(nrHaplotypes, freq);
-      return (1.0 - exp(-mu * tTot)) * (2.0 / freq + 2.0 / (nrHaplotypes - freq)) / (nrStates - forbiddenStates) / tTot;
-    }
-  }
-
-  // double emissionProbDirected(int emissionId, double t, double tLeaf) const {
-  //   if(nrHaplotypes == 2) {
-  //     if(emissionId == 0)
-  //       return exp(-2.0 * mu * t);
-  //     else
-  //       return 1.0 - exp(-2.0 * mu * t);
-  //   }
-  //   
-  //   auto tLower = t * nrHaplotypes;
-  //   if(tLeaf < tLower)
-  //     tLeaf = tLower;
-  // 
-  //   auto tLeafUpper = tLeaf - tLower;
-  //   auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
-  //   tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
-  //   auto tTot = tLower + tUpper;
-  //   
-  //   if(emissionId < 0)
-  //     return 0.0;
-  //   if(emissionId == 0) {
-  //     return exp(-mu * tTot);
-  //   }
-  //   if(emissionId == 1)
-  //     return (1.0 - exp(-mu * tTot)) * t / tTot;
-  //   if(emissionId == nrHaplotypes)
-  //     return (1.0 - exp(-mu * tTot)) * (tLeaf - t * 2.0) / tTot / (nrHaplotypes - 2.0);
-  //   else {
-  //     auto freq = emissionId < nrHaplotypes ? emissionId : emissionId - nrHaplotypes + 1;
-  //     auto forbiddenStates = freq * (nrHaplotypes - freq);
-  //     auto nrStates = binomial(nrHaplotypes, freq);
-  //     return (1.0 - exp(-mu * tTot)) * 2.0 / freq / (nrStates - forbiddenStates) / tTot;
-  //   }
-  // }
-
-  double emissionProbDirected(int emissionId, double t, double tTot, double tLeaf) const {
-    if(nrHaplotypes == 2) {
-      if(emissionId == 0)
-        return exp(-2.0 * mu * t);
-      else
-        return 1.0 - exp(-2.0 * mu * t);
-    }
-    
-    if(emissionId <= 0) {
-      return 1.0 - mu * tTot;
-    }
     if(emissionId == 1)
       return mu * t;
-    if(emissionId == nrHaplotypes) {
-      if(tLeaf < t)
-        tLeaf = t;
-      return mu * tLeaf;
+    if((emissionId == nrHaplotypes - 1 && !directedEmissions) || (emissionId == nrHaplotypes && directedEmissions)) {
+      return mu * (tLeaf - t * 2.0) / (nrHaplotypes - 2.0);
     }
     else {
-      return 1.0 - mu * tTot;
+      return 1.0 - mu * tLeaf;
     }
   }
 
