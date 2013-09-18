@@ -140,7 +140,7 @@ class EmissionRate {
     auto tLower = t * nrHaplotypes;
     if(tLeaf < tLower)
       tLeaf = tLower;
-
+  
     auto tLeafUpper = tLeaf - tLower;
     auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
     tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
@@ -162,6 +162,46 @@ class EmissionRate {
       return (1.0 - exp(-mu * tTot)) * 2.0 / freq / (nrStates - forbiddenStates) / tTot;
     }
   }
+
+  // double emissionProbDirected(int emissionId, double t, double tLeaf) const {
+  //   if(nrHaplotypes == 2) {
+  //     if(emissionId == 0)
+  //       return exp(-2.0 * mu * t);
+  //     else
+  //       return 1.0 - exp(-2.0 * mu * t);
+  //   }
+  //   
+  //   // auto tLower = t * nrHaplotypes;
+  //   // if(tLeaf < tLower)
+  //   //   tLeaf = tLower;
+  //   // 
+  //   // auto tLeafUpper = tLeaf - tLower;
+  //   // auto tUpper = tLeafUpper + mutationTreeLength(nrHaplotypes - 1, 1);
+  //   // tUpper += 2.0 * iota(2, nrHaplotypes - 1).map!"1.0/a"().reduce!"a+b"();
+  //   // auto tTot = tLower + tUpper;
+  // 
+  //   if(tLeaf < 2.0 * t)
+  //     tLeaf = 2.0 * t;
+  //   
+  //   // if(emissionId < 0)
+  //   //   return 0.0;
+  //   if(emissionId <= 0) {
+  //     return 1.0 - mu * tLeaf;
+  //   }
+  //   if(emissionId == 1)
+  //     return mu * t;
+  //   if(emissionId == nrHaplotypes) {
+  //     return mu * (tLeaf - t * 2.0) / (nrHaplotypes - 2.0);
+  //     // return mu * tLeaf / nrHaplotypes;
+  //   }
+  //   else {
+  //     auto freq = emissionId < nrHaplotypes ? emissionId : emissionId - nrHaplotypes + 1;
+  //     auto forbiddenStates = freq * (nrHaplotypes - freq);
+  //     auto nrStates = binomial(nrHaplotypes, freq);
+  //     // return mu * 2.0 / freq / (nrStates - forbiddenStates);
+  //     return 1.0 - mu * tLeaf;
+  //   }
+  // }
 }
 
 double mutationTreeLength(size_t m, size_t freq)
