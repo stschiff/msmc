@@ -42,7 +42,7 @@ class MSMCmodel {
     auto nrHaplotypes = cast(size_t)subpopLabels.length;
     emissionRate = new EmissionRate(nrHaplotypes, mutationRate, directedEmissions);
     timeIntervals = new TimeIntervals(timeBoundaries ~ [double.infinity]);
-    tTotIntervals = TimeIntervals.standardTotalBranchlengthIntervals(nrTtotIntervals);
+    tTotIntervals = TimeIntervals.standardTotalBranchlengthIntervals(nrTtotIntervals, nrHaplotypes, directedEmissions);
     marginalIndex = new MarginalTripleIndex(nrTimeIntervals, subpopLabels);
     coal = new PiecewiseConstantCoalescenceRate(marginalIndex, lambdaVec);
     transitionRate = new TransitionRate(marginalIndex, coal, timeIntervals, recombinationRate);
@@ -71,8 +71,8 @@ class MSMCmodel {
     auto triple = marginalIndex.getTripleFromIndex(aij);
     auto id = emissionRate.getEmissionId(alleles, triple.ind1, triple.ind2);
     auto time = timeIntervals.meanTime(triple.time, nrHaplotypes);
-    auto tLeaf = tTotIntervals.meanTime(tTotIndex, 2);
-    return emissionRate.emissionProb(id, time, tLeaf);
+    auto tTot = tTotIntervals.meanTime(tTotIndex, 2);
+    return emissionRate.emissionProb(id, time, tTot);
   }
   
   double emissionProbHom(size_t time_index, size_t ttotIndex) const {

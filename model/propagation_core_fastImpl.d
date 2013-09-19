@@ -190,9 +190,7 @@ class PropagationCoreFast : PropagationCore {
     auto e = new double[msmc.nrMarginals];
     
     foreach(au; 0 .. msmc.nrMarginals) {
-      auto index = msmc.marginalIndex.getIndexFromMarginalIndex(au);
-      auto triple = msmc.marginalIndex.getTripleFromIndex(index);
-      e[au] = missing_data ? 1.0 : msmc.emissionProbHom(triple.time, i);
+      e[au] = missing_data ? 1.0 : emissionProbsMarginal[i][au];
     }
     
     foreach(au; 0 .. msmc.nrMarginals) {
@@ -474,19 +472,19 @@ unittest {
     auto dist = 10;
     auto f = impl.newForwardState();
     auto fNext = impl.newForwardState();
-    auto dummy_site = new SegSite_t(1, 1, 2);
+    auto dummy_site = new SegSite_t(1, 1, 2, 0);
     impl.setState(f, 1.0, dummy_site);
     foreach(i; 0 .. dist) {
-      auto left_site = new SegSite_t(1 + i, 1, 2);
-      auto right_site = new SegSite_t(1 + i + 1, 1, 2);
+      auto left_site = new SegSite_t(1 + i, 1, 2, 0);
+      auto right_site = new SegSite_t(1 + i + 1, 1, 2, 0);
       impl.propagateSingleForward(f, fNext, left_site, right_site);
       fNext.copy_into(f);
     }
     auto fSingles = impl.newForwardState();
     f.copy_into(fSingles);
     impl.setState(f, 1.0, dummy_site);
-    auto left_site = new SegSite_t(1, 1, 2);
-    auto right_site = new SegSite_t(1 + dist, 1, 2);
+    auto left_site = new SegSite_t(1, 1, 2, 0);
+    auto right_site = new SegSite_t(1 + dist, 1, 2, 0);
     impl.propagateMultiForward(f, fNext, left_site, right_site);
     auto fSinglesA = fSingles.vec;
     auto fNextA = fNext.vec;
@@ -521,19 +519,19 @@ unittest {
     auto dist = 10;
     auto b = impl.newBackwardState();
     auto bNext = impl.newBackwardState();
-    auto dummy_site = new SegSite_t(dist + 1, 1, 2);
+    auto dummy_site = new SegSite_t(dist + 1, 1, 2, 0);
     impl.setState(b, 1.0, dummy_site);
     foreach(i; 0 .. dist) {
-      auto left_site = new SegSite_t(dist - i, 1, 2);
-      auto right_site = new SegSite_t(dist + 1 - i, 1, 2);
+      auto left_site = new SegSite_t(dist - i, 1, 2, 0);
+      auto right_site = new SegSite_t(dist + 1 - i, 1, 2, 0);
       impl.propagateSingleBackward(b, bNext, right_site, left_site);
       bNext.copy_into(b);
     }
     auto bSingles = impl.newBackwardState();
     b.copy_into(bSingles);
     impl.setState(b, 1.0, dummy_site);
-    auto left_site = new SegSite_t(1, 1, 2);
-    auto right_site = new SegSite_t(dist + 1, 1, 2);
+    auto left_site = new SegSite_t(1, 1, 2, 0);
+    auto right_site = new SegSite_t(dist + 1, 1, 2, 0);
     impl.propagateMultiBackward(b, bNext, right_site, left_site);
     auto bSinglesA = bSingles.vec;
     auto bNextA = bNext.vec;

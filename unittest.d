@@ -39,6 +39,7 @@ import brent;
 import maximization_step;
 import expectation_step;
 import amoeba;
+import branchlength;
 
 void main() {
   writeln("all tests processed");
