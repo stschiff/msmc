@@ -134,6 +134,7 @@ void run() {
     }
   }
   normalizeLengths(consensusSequences, 'N');
+  stderr.writeln("consensus sequence length: ", consensusSequences[0].length);
   printOutput(consensusSequences);
 }
 
@@ -142,6 +143,7 @@ char[][] readVCF(string filename, string chrom) {
   auto nrSamples = 0UL;
   auto file = openFile(filename);
   auto cnt = 0;
+  stderr.writeln("reading ", filename, ", chromosome ", chrom);
   foreach(line; file.byLine().filter!(l => l.startsWith(chrom))()) {
     auto fields = line.strip().split("\t");
     if(nrSamples == 0) {
@@ -149,8 +151,8 @@ char[][] readVCF(string filename, string chrom) {
       ret = new char[][nrSamples];
     }
     auto pos = fields[1].to!size_t();
-    if(cnt++ % 100000 == 0)
-      stderr.writeln("scanning pos ", pos);
+    // if(cnt++ % 100000 == 0)
+    //   stderr.writeln("scanning pos ", pos);
     auto i = pos - 1;
     
     foreach(j; 0 .. nrSamples)
@@ -226,6 +228,7 @@ char[] readCG(string filename, string chrom_str, char[] ref_seq) {
   auto seq = new char[ref_seq.length];
   seq[] = 'N';
   bool chromosome_read;
+  stderr.writeln("reading ", filename, ", chromosome ", chrom_str);
   foreach(line; cg_file.byLine().filter!(l => !(startsWith(l, "#") || startsWith(l, ">") || l.strip().length == 0))()) {
 
     auto fields = line.strip().split("\t");
@@ -233,10 +236,10 @@ char[] readCG(string filename, string chrom_str, char[] ref_seq) {
     auto chrom = fields[2];
     auto begin = to!int(fields[3]);
     auto end = to!int(fields[4]);
-    if(line_count++ % 100000 == 0) {
-      stderr.writefln("processing pos %s:%s-%s", chrom, begin, end);
-      // break;
-    }
+    // if(line_count++ % 100000 == 0) {
+    //   stderr.writefln("processing pos %s:%s-%s", chrom, begin, end);
+    //   // break;
+    // }
     if(chrom != chrom_str) {
       if(chromosome_read)
         break;
@@ -280,6 +283,7 @@ char[] readCG(string filename, string chrom_str, char[] ref_seq) {
 }
 
 char[] readFastaSequence(string filename, string ref_chr) {
+  stderr.writeln("reading reference file ", filename);
   auto ref_file = File(filename, "r");
   auto pattern = r"^>" ~ ref_chr ~ r"[\s]*";
   char[] line;
@@ -291,7 +295,7 @@ char[] readFastaSequence(string filename, string ref_chr) {
     exit(1);
   }
   
-  stderr.writeln("found fasta region ", strip(line));
+  stderr.writeln("reading fasta region ", strip(line));
   ref_file.readln(line);
   char[] ref_seq;
   do {
@@ -328,17 +332,19 @@ void printOutput(char[][] consensusSequences) {
   int current_position_index = 0;
   if(positions_filename.length > 0) {
     forced_positions = readPositions(positions_filename);
-    stderr.writeln("read positions: ", forced_positions[0..20]);
+    stderr.writefln("read positions: %s ...", forced_positions[0..20]);
   }
+  auto count_printed = 0;
   foreach(i; 0 .. consensusSequences[0].length) {
-    if(i % 1000000 == 0)
-      stderr.writeln("position ", i, ", ", current_position_index);
+    // if(i % 1000000 == 0)
+    //   stderr.writeln("position ", i, ", ", current_position_index);
     if(!hasGap(consensusSequences, i))
       nr_called_sites += 1;
     if(forced_positions.length == 0) {
       if(hasSNP(consensusSequences, i) && !hasGap(consensusSequences, i)) {
         auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
         writefln("%s\t%s\t%s\t%s", chromosome[0], i + 1, nr_called_sites, alleleString);
+        count_printed += 1;
         nr_called_sites = 0;
       }
     }
@@ -350,11 +356,13 @@ void printOutput(char[][] consensusSequences) {
         if(!hasGap(consensusSequences, i)) {
           auto alleleString = consensusSequences.map!(c => IUPAC_dna_rev[c[i]].idup)().joiner("\t").array;
           writefln("%s\t%s\t%s\t%s", chromosome[0], i + 1, nr_called_sites, alleleString);
+          count_printed += 1;
           nr_called_sites = 0;
         }
       }
     }
   }
+  stderr.writeln("wrote ", count_printed, " positions");
 }
 
 size_t[] readPositions(string filename) {
