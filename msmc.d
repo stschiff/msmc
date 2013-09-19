@@ -37,6 +37,7 @@ import expectation_step;
 import maximization_step;
 import logger;
 import branchlength;
+import model.triple_index_marginal;
 
 auto maxIterations = 20UL;
 double mutationRate;
@@ -162,12 +163,14 @@ void parseCommandLine(string[] args) {
   if(subpopLabels.length == 0)
     inferDefaultSubpopLabels();
   nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
+  auto nrSubpops = MarginalTripleIndex.computeNrSubpops(subpopLabels);
+  auto nrMarginals = nrTimeSegments * nrSubpops * (nrSubpops + 1) / 2;
   if(lambdaVec.length == 0) {
-    lambdaVec = new double[nrTimeSegments];
+    lambdaVec = new double[nrMarginals];
     lambdaVec[] = 1.0;
   }
   enforce(treeFileNames.length == 0 || treeFileNames.length == inputFileNames.length);
-  enforce(lambdaVec.length == nrTimeSegments, "initialLambdaVec must have correct length");
+  enforce(lambdaVec.length == nrMarginals, "initialLambdaVec must have correct length");
   
   logFileName = outFilePrefix ~ ".log";
   loopFileName = outFilePrefix ~ ".loop.txt";
@@ -212,21 +215,23 @@ void run() {
   
   auto inputData = readDataFromFiles(inputFileNames, directedEmissions);
   
-  if(treeFileNames.length == 0) {
-    auto cnt = 0;
-    foreach(i, data; taskPool.parallel(inputData)) {
-      logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
-      estimateTotalBranchlengths(data, params);
+  if(params.nrHaplotypes > 2) {
+    if(treeFileNames.length == 0) {
+      auto cnt = 0;
+      foreach(i, data; taskPool.parallel(inputData)) {
+        logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+        estimateTotalBranchlengths(data, params);
+      }
     }
-  }
-  else {
-    auto cnt = 0;
-    foreach(data; taskPool.parallel(zip(inputData, treeFileNames))) {
-      logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
-      readTotalBranchlengths(data[0], params, data[1]);
+    else {
+      auto cnt = 0;
+      foreach(data; taskPool.parallel(zip(inputData, treeFileNames))) {
+        logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+        readTotalBranchlengths(data[0], params, data[1]);
+      }
     }
+    logInfo("\n");
   }
-  logInfo("\n");
   
   auto f = File(loopFileName, "w");
   f.close();
