@@ -99,15 +99,18 @@ class EmissionRate {
     
     if(tLeaf < t * nrHaplotypes)
       tLeaf = t * nrHaplotypes;
-
+    
+    if(emissionId < 0)
+      return 0.0;
+    if(emissionId == 0)
+      return 1.0 - mu * tLeaf;
     if(emissionId == 1)
       return mu * t;
-    if((emissionId == nrHaplotypes - 1 && !directedEmissions) || (emissionId == nrHaplotypes && directedEmissions)) {
+    if(emissionId == nrHaplotypes && directedEmissions)
       return mu * (tLeaf - t * 2.0) / (nrHaplotypes - 2.0);
-    }
-    else {
-      return 1.0 - mu * tLeaf;
-    }
+    if(emissionId == nrHaplotypes - 1 && !directedEmissions)
+      return mu * ((tLeaf - t * nrHaplotypes) / (nrHaplotypes - 2.0) + t);
+    return 1.0 - mu * tLeaf;
   }
 
 }

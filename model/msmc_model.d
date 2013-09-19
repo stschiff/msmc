@@ -42,7 +42,7 @@ class MSMCmodel {
     auto nrHaplotypes = cast(size_t)subpopLabels.length;
     emissionRate = new EmissionRate(nrHaplotypes, mutationRate, directedEmissions);
     timeIntervals = new TimeIntervals(timeBoundaries ~ [double.infinity]);
-    tTotIntervals = TimeIntervals.standardTotalBranchlengthIntervals(nrTtotIntervals);
+    tTotIntervals = TimeIntervals.standardTotalBranchlengthIntervals(nrTtotIntervals, nrHaplotypes, directedEmissions);
     marginalIndex = new MarginalTripleIndex(nrTimeIntervals, subpopLabels);
     coal = new PiecewiseConstantCoalescenceRate(marginalIndex, lambdaVec);
     transitionRate = new TransitionRate(marginalIndex, coal, timeIntervals, recombinationRate);

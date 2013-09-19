@@ -109,7 +109,7 @@ private MSMC_hmm buildHMM(SegSite_t[] inputData, size_t nrHaplotypes, Propagatio
 }
 
 void readTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, string treeFileName) {
-  auto simTreeParser = new SimTreeParser(treeFileName, params.nrTtotIntervals);
+  auto simTreeParser = new SimTreeParser(treeFileName);
   auto allele_order = canonicalAlleleOrder(params.nrHaplotypes);
   foreach(ref segsite; inputData) {
     auto alleles = allele_order[segsite.obs[0] - 1];
@@ -138,10 +138,10 @@ unittest {
 
 class SimTreeParser {
   
-  Tuple!(size_t, double, double[])[] data;
+  Tuple!(size_t, double)[] data;
   size_t lastIndex;
   
-  this(string treeFileName, size_t nrTtotSegments) {
+  this(string treeFileName) {
     
     auto treeFile = File(treeFileName, "r");
     auto pos = 0UL;
@@ -149,18 +149,12 @@ class SimTreeParser {
       auto fields = line.strip().split();
       auto l = fields[0].to!size_t;
       auto str = fields[1];
-      auto tLeaflengths = getLeafLengths(str);
-      auto tLeafTot = tLeaflengths.reduce!"a+b"();
+      auto tLeaflength = getTotLeafLength(str);
       pos += l;
-      data ~= tuple(pos, tLeafTot, tLeaflengths);
+      data ~= tuple(pos, tLeaflength);
     }
   }
   
-  double getTLeaf(size_t pos, size_t i) {
-    auto index = getIndex(pos);
-    return data[index][2][i];
-  }
-
   double getTLeafTot(size_t pos) {
     auto index = getIndex(pos);
     return data[index][1];

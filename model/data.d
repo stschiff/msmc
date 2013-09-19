@@ -35,28 +35,25 @@ class SegSite_t {
   // for missing data: [0]
   
   size_t i_Ttot;
-  size_t i_Tleaf;
   
-  this(size_t pos, in size_t[] obs, size_t i_Ttot, size_t i_Tleaf) {
+  this(size_t pos, in size_t[] obs, size_t i_Ttot) {
     this.pos = pos;
     this.obs = obs.dup;
     this.i_Ttot = i_Ttot;
-    this.i_Tleaf = i_Tleaf;
   }
   
-  this(size_t pos, size_t obs, size_t i_Ttot, size_t i_Tleaf) {
+  this(size_t pos, size_t obs, size_t i_Ttot) {
     this.pos = pos;
     this.obs = [obs];
     this.i_Ttot = i_Ttot;
-    this.i_Tleaf = i_Tleaf;
   }
   
   @property SegSite_t dup() const {
-    return new SegSite_t(pos, obs.dup, i_Ttot, i_Tleaf);
+    return new SegSite_t(pos, obs.dup, i_Ttot);
   }
   
   override string toString() const {
-    return text("Segsite(", pos, ", ", obs, ", ", i_Ttot, ",", i_Tleaf, ")");
+    return text("Segsite(", pos, ", ", obs, ", ", i_Ttot, ")");
   }
 }
 
@@ -203,11 +200,11 @@ SegSite_t[] readSegSites(string filename, bool directedEmissions) {
       }
       if(is_missing) {
         if(nrCalledSites < pos - lastPos) { // missing data
-          ret ~= new SegSite_t(pos - nrCalledSites, 0, 0, 0);
+          ret ~= new SegSite_t(pos - nrCalledSites, 0, 0);
         }
         if(nrCalledSites > 1)
-          ret ~= new SegSite_t(pos - 1, 1, 0, 0);
-        ret ~= new SegSite_t(pos, 0, 0, 0);
+          ret ~= new SegSite_t(pos - 1, 1, 0);
+        ret ~= new SegSite_t(pos, 0, 0);
         lastPos = pos;
       }
       else {
@@ -218,17 +215,17 @@ SegSite_t[] readSegSites(string filename, bool directedEmissions) {
           allele_indices ~= obsMap[normalized];
         }
         if(nrCalledSites < pos - lastPos) { // missing data
-          ret ~= new SegSite_t(pos - nrCalledSites, 0, 0, 0);
+          ret ~= new SegSite_t(pos - nrCalledSites, 0, 0);
         }
-        ret ~= new SegSite_t(pos, allele_indices, 0, 0);
+        ret ~= new SegSite_t(pos, allele_indices, 0);
         lastPos = pos;
       }
     }
     else {
       if(nrCalledSites < pos - lastPos) { // missing data
-        ret ~= new SegSite_t(pos - nrCalledSites, 0, 0, 0);
+        ret ~= new SegSite_t(pos - nrCalledSites, 0, 0);
       }
-      ret ~= new SegSite_t(pos, 2, 0, 0); // [2] means heterozygous
+      ret ~= new SegSite_t(pos, 2, 0); // [2] means heterozygous
       lastPos = pos;
     }
     

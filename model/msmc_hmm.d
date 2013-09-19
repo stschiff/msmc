@@ -38,7 +38,7 @@ SegSite_t[] chop_segsites(in SegSite_t[] segsites, size_t maxDistance) {
   size_t lastPos = 0;
   foreach(segsite; segsites) {
     while(segsite.pos - lastPos > maxDistance) {
-      ret ~= new SegSite_t(lastPos + maxDistance, min(segsite.obs[0], 1), segsite.i_Ttot, segsite.i_Tleaf);
+      ret ~= new SegSite_t(lastPos + maxDistance, min(segsite.obs[0], 1), segsite.i_Ttot);
       lastPos += maxDistance;
     }
     ret ~= segsite.dup;
@@ -239,7 +239,7 @@ class MSMC_hmm {
     if(segsites[index].pos == pos)
       return segsites[index].dup;
     else
-      return new SegSite_t(pos, min(segsites[index].obs[0], 1), segsites[index].i_Ttot, segsites[index].i_Tleaf);
+      return new SegSite_t(pos, min(segsites[index].obs[0], 1), segsites[index].i_Ttot);
   }
   
   private size_t getRightIndexAtPos(size_t pos)

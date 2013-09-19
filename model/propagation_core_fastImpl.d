@@ -190,9 +190,7 @@ class PropagationCoreFast : PropagationCore {
     auto e = new double[msmc.nrMarginals];
     
     foreach(au; 0 .. msmc.nrMarginals) {
-      auto index = msmc.marginalIndex.getIndexFromMarginalIndex(au);
-      auto triple = msmc.marginalIndex.getTripleFromIndex(index);
-      e[au] = missing_data ? 1.0 : msmc.emissionProbHom(triple.time, i);
+      e[au] = missing_data ? 1.0 : emissionProbsMarginal[i][au];
     }
     
     foreach(au; 0 .. msmc.nrMarginals) {
@@ -224,10 +222,7 @@ class PropagationCoreFast : PropagationCore {
   private double fullE(in SegSite_t segsite, size_t aij) const {
     double ret = 0.0;
     foreach(o; segsite.obs) {
-      if(o - 1 == 1 || o - 1 == 2 || o - 1 == 4 || o - 1 == 8 || o - 1 == 16 || o - 1 == 32)
-        ret += emissionProbs[segsite.i_Tleaf][o][aij];
-      else
-        ret += emissionProbs[segsite.i_Ttot][o][aij];
+      ret += emissionProbs[segsite.i_Ttot][o][aij];
     }
     ret /= cast(double)segsite.obs.length;
     return ret;
