@@ -60,7 +60,8 @@ void run() {
       auto chr = data[0];
       auto pos = data[1];
       auto nr_called = data[2];
-      auto allPhasings = data[3];
+      auto unphased = data[3];
+      auto allPhasings = data[4];
       while(lastHapsFilePos < pos && !hapsFileRange.empty) {
         auto hapsFileLine = hapsFileRange.front.dup;
         hapsFileRange.popFront;
@@ -71,26 +72,27 @@ void run() {
         auto al = hapsFields[3..5].joiner.array;
         auto gens = hapsFields[5 + 2 * hapsIndex .. 5 + 2 * (hapsIndex + 1)].map!(a => al[a.to!size_t()].to!char())().array;
         auto prunedPhasings = pruneInconsistentPhasings(allPhasings, multihetsepIndex, gens);
-        enforce(prunedPhasings.length > 0, text(format("%s\t%s\t%s\t%s", pos, allPhasings, al, gens)));
-        data[3] = prunedPhasings;
+        enforce(prunedPhasings.length > 0, text(format("%s\t%s\t%s\t%s\t%s", pos, unphased, allPhasings, al, gens)));
+        data[4] = prunedPhasings;
       }
     }
   }
   foreach(data; multihetsepData) {
-    writefln("%s\t%s\t%s\t%s", data[0], data[1], data[2], data[3]);
+    writefln("%s\t%s\t%s\t%s", data[0], data[1], data[2], data[4].joiner(",").array());
   }
 }
 
 auto readMultihetsepFile(string filename) {
-  Tuple!(string, size_t, size_t, char[][])[] ret;
+  Tuple!(string, size_t, size_t, char[][], char[][])[] ret;
   auto f = File(multihetsep_filename, "r");
   foreach(line; f.byLine) {
     auto fields = line.strip().split();
     auto chr = fields[0].idup;
     auto pos = fields[1].to!size_t();
     auto calledSites = fields[2].to!size_t();
-    auto allPhasings = getAllPhasings(fields[3 .. $]);
-    ret ~= tuple(chr, pos, calledSites, allPhasings);
+    auto unphased = fields[3 .. $];
+    auto allPhasings = getAllPhasings(unphased);
+    ret ~= tuple(chr, pos, calledSites, unphased, allPhasings);
   }
   return ret;
 }
