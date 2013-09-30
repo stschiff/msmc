@@ -50,9 +50,9 @@ SegSite_t[] chop_segsites(in SegSite_t[] segsites, size_t maxDistance) {
 unittest {
   writeln("testing chop_sites");
   auto data = [
-    new SegSite_t(400, [3], 0, 0),
-    new SegSite_t(3600, [0], 0, 0), // missing data
-    new SegSite_t(5000, [2], 0, 0)
+    new SegSite_t(400, [3], 0),
+    new SegSite_t(3600, [0], 0), // missing data
+    new SegSite_t(5000, [2], 0)
   ];
   auto ret = chop_segsites(data, 1000);
   assert(ret[0].pos == 400);
@@ -316,7 +316,7 @@ unittest {
 
   auto nrS = propagationCoreFast.getMSMC.nrStates;
   
-  auto data = readSegSites("model/hmm_testData.txt", false);
+  auto data = readSegSites("model/hmm_testData.txt", false, [], false);
   
   auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, data);
   auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, data);

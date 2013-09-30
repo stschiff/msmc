@@ -53,10 +53,13 @@ auto naiveImplementation = false;
 auto fixedPopSize = false;
 auto fixedRecombination = false;
 bool directedEmissions = false;
+bool skipAmbiguous = false;
 string[] inputFileNames, treeFileNames;
+SegSite_t[][] inputData;
 size_t hmmStrideWidth = 1000;
 double[] lambdaVec;
 size_t nrTimeSegments;
+size_t[] indices;
 string logFileName, loopFileName, finalFileName;
 
 
@@ -78,6 +81,8 @@ auto helpString = "Usage: msmc [options] <datafiles>
     -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
     -v, --verbose: write out the expected number of transition matrices (into a separate file)
     -d, --directedEmissions: use directed Emissions model, using knowledge of the ancestral allele.
+    -I, --indices: indices (comma-separated) of alleles in the data file to run over
+    --skipAmbiguous: skip sites with ambiguous phasing. Recommended for gene flow analysis
     --naiveImplementation: use naive HMM implementation [for debugging only]
     --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed [not recommended]
     --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [default=1000]
@@ -128,6 +133,10 @@ void parseCommandLine(string[] args) {
     treeFileNames = std.string.split(value, ",").array();
   }
   
+  void handleIndices(string option, string value) {
+    indices = std.string.split(value, ",").map!"a.to!size_t()"().array();
+  }
+  
   if(args.length == 1) {
     displayHelpMessageAndExit();
   }
@@ -144,6 +153,8 @@ void parseCommandLine(string[] args) {
       "verbose|v", &verbose,
       "outFilePrefix|o", &outFilePrefix,
       "directedEmissions|d", &directedEmissions,
+      "indices|I", &handleIndices,
+      "skipAmbiguous", &skipAmbiguous,
       "help|h", &displayHelpMessageAndExit,
       "naiveImplementation", &naiveImplementation,
       "hmmStrideWidth", &hmmStrideWidth,
@@ -154,14 +165,22 @@ void parseCommandLine(string[] args) {
   );
   if(nrThreads)
     std.parallelism.defaultPoolThreads(nrThreads);
-  enforce(!isNaN(mutationRate), "need to set mutation rate");
-  if(isNaN(recombinationRate))
-    recombinationRate = mutationRate / 4.0;
   enforce(args.length > 1, "need at least one input file");
   enforce(hmmStrideWidth > 0, "hmmStrideWidth must be positive");
-  inputFileNames = args[1..$];
+  inputFileNames = args[1 .. $];
+  if(indices.length == 0)
+    inferDefaultIndices();
   if(subpopLabels.length == 0)
-    inferDefaultSubpopLabels();
+    inferDefaultSubpopLabels(indices.length);
+  enforce(indices.length == subpopLabels.length, "nr haplotypes in subpopLabels and indices must be equal");
+  inputData = readDataFromFiles(inputFileNames, directedEmissions, indices, skipAmbiguous);
+  if(isNaN(mutationRate)) {
+    stderr.write("estimating mutation rate: ");
+    mutationRate = getTheta(inputData, indices.length) / 2.0;
+    stderr.writeln(mutationRate);
+  }
+  if(isNaN(recombinationRate))
+    recombinationRate = mutationRate / 4.0;
   nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
   auto nrSubpops = MarginalTripleIndex.computeNrSubpops(subpopLabels);
   auto nrMarginals = nrTimeSegments * nrSubpops * (nrSubpops + 1) / 2;
@@ -196,6 +215,8 @@ void printGlobalParams() {
   logInfo(format("fixedRecombination:  %s\n", fixedRecombination));
   logInfo(format("initialLambdaVec:    %s\n", lambdaVec));
   logInfo(format("directedEmissions:   %s\n", directedEmissions));
+  logInfo(format("skipAmbiguous:       %s\n", skipAmbiguous));
+  logInfo(format("indices:             %s\n", indices));
   logInfo(format("logging information written to %s\n", logFileName));
   logInfo(format("loop information written to %s\n", loopFileName));
   logInfo(format("final results written to %s\n", finalFileName));
@@ -203,17 +224,19 @@ void printGlobalParams() {
     logInfo(format("transition matrices written to %s.loop_*.expectationMatrix.txt\n", outFilePrefix));
 }
 
-void inferDefaultSubpopLabels() {
+void inferDefaultIndices() {
   auto nrHaplotypes = getNrHaplotypesFromFile(inputFileNames[0]);
-  foreach(i; 0 .. nrHaplotypes)
-    subpopLabels ~= 0;
+  indices = iota(nrHaplotypes).array();
 }
+
+void inferDefaultSubpopLabels(size_t nrHaplotypes) {
+  subpopLabels = new size_t[nrHaplotypes];
+  subpopLabels[] = 0;
+}
+
 
 void run() {
   auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, directedEmissions);
-  
-  
-  auto inputData = readDataFromFiles(inputFileNames, directedEmissions);
   
   if(params.nrHaplotypes > 2) {
     if(treeFileNames.length == 0) {
@@ -254,10 +277,10 @@ void run() {
   printFinal(finalFileName, params);
 }
 
-SegSite_t[][] readDataFromFiles(string[] filenames, bool directedEmissions) {
+SegSite_t[][] readDataFromFiles(string[] filenames, bool directedEmissions, size_t[] indices, bool skipAmbiguous) {
   SegSite_t[][] ret;
   foreach(filename; filenames) {
-    auto data = readSegSites(filename, directedEmissions);
+    auto data = readSegSites(filename, directedEmissions, indices, skipAmbiguous);
     logInfo(format("read %s SNPs from file %s\n", data.length, filename));
     ret ~= data;
   }
@@ -284,19 +307,29 @@ void printLoop(string filename, MSMCmodel params, double logLikelihood) {
 
 void printFinal(string filename, MSMCmodel params) {
   auto f = File(filename, "w");
-  f.write("time_index\ttime_boundary");
+  f.write("time_index\tleft_time_boundary\tright_time_boundary\tleft_time_boundary_unscaled\tright_time_boundary_unscaled");
   auto nrSubpopPairs = params.nrSubpopulations * (params.nrSubpopulations + 1) / 2;
   foreach(i; 0 .. params.nrSubpopulations) {
     foreach(j; i .. params.nrSubpopulations) {
       f.writef("\tlambda_%s%s", i, j);
     }
   }
+  foreach(i; 0 .. params.nrSubpopulations) {
+    foreach(j; i .. params.nrSubpopulations) {
+      f.writef("\tlambda_%s%s_unscaled", i, j);
+    }
+  }
   f.write("\n");
   auto lambdaIndex = 0;
   foreach(i; 0 .. params.nrTimeIntervals) {
-    f.writef("%s\t%s", i, params.timeIntervals.rightBoundary(i));
+    auto left = params.timeIntervals.leftBoundary(i);
+    auto right = params.timeIntervals.rightBoundary(i);
+    f.writef("%s\t%s", i, left, right, left * mutationRate, right * mutationRate);
     foreach(j; 0 .. nrSubpopPairs) {
       f.writef("\t%s", params.lambdaVec[lambdaIndex++]);
+    }
+    foreach(j; 0 .. nrSubpopPairs) {
+      f.writef("\t%s", params.lambdaVec[lambdaIndex++] / mutationRate);
     }
     f.write("\n");
   }

@@ -87,7 +87,7 @@ unittest {
   lambdaVec[] = 1.0;
   auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4, false);
   auto fileName = "model/hmm_testData.txt";
-  auto data = readSegSites(fileName, false);
+  auto data = readSegSites(fileName, false, [], false);
   auto hmmStrideWidth = 100UL;
   
   auto allData = [data, data, data];

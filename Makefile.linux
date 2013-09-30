@@ -20,7 +20,7 @@ testcoverage : model/*.d unittest.d powell.d brent.d maximization_step.d expecta
 	build/unittest
 	mv *.lst code_coverage/
 
-unittest : model/*.d unittest.d powell.d brent.d maximization_step.d expectation_step.d amoeba.d logger.d
+unittest : model/*.d unittest.d powell.d brent.d maximization_step.d expectation_step.d amoeba.d logger.d branchlength.d
 	dmd -unittest ${GSL} -odbuild -ofbuild/unittest $^
 	build/unittest
 

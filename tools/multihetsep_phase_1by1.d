@@ -83,6 +83,7 @@ void run() {
 }
 
 auto readMultihetsepFile(string filename) {
+  stderr.writeln("reading multihetsep-file: ", filename);
   Tuple!(string, size_t, size_t, char[][], char[][])[] ret;
   auto f = File(multihetsep_filename, "r");
   foreach(line; f.byLine) {
