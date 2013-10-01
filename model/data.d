@@ -305,11 +305,12 @@ double getTheta(in SegSite_t[][] data, size_t nrHaplotypes) {
     size_t lastPos = 0;
     foreach(dd; d) {
       if(dd.obs[0] > 0) {
-        called_sites += dd.pos - lastPos;
-        lastPos = dd.pos;
+        if(lastPos > 0)
+          called_sites += dd.pos - lastPos;
         if(dd.obs.any!(o => o > 1))
           nr_segsites += 1;
       }
+      lastPos = dd.pos;
     }
   }
   auto watterson = iota(1, nrHaplotypes).map!"1.0 / a"().reduce!"a+b"();
