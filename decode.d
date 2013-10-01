@@ -88,20 +88,26 @@ void run() {
 MSMC_hmm makeTtotHmm() {
   auto lambdaVec = new double[nrTtotSegments];
   lambdaVec[] = 1.0;
-  auto expectedTtot = 2.0 * TimeIntervals.computeWattersonFactor(nrHaplotypes);
+  auto expectedTtot = 2.0;
   auto boundaries = TimeIntervals.getQuantileBoundaries(nrTtotSegments, expectedTtot / 2.0);
-  auto model = new MSMCmodel(mutationRate, recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1);
+  auto model = new MSMCmodel(mutationRate, recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1, false);
 
   stderr.writeln("generating propagation core");
   auto propagationCore = new PropagationCoreFast(model, 1000);
 
   stderr.writeln("loading file ", inputFileName);
-  auto segsites = readSegSites(inputFileName);
+  auto segsites = readSegSites(inputFileName, false, [], false);
+  auto allele_order = canonicalAlleleOrder(nrHaplotypes);
   foreach(ref s; segsites) {
-    if(s.obs.length > 1 || s.obs[0] > 1)
-      s.obs = [2];
+    if(s.obs[0] > 1) {
+      auto count_0 = count(allele_order[s.obs[0] - 1], '0');
+      auto count_1 = nrHaplotypes - count_0;
+      if(count_0 == 1 || count_1 == 1)
+        s.obs = [2];
+      else
+        s.obs = [1];
+    }
   }
-    
   stderr.writeln("generating Hidden Markov Model");
   return new MSMC_hmm(propagationCore, segsites);
 
@@ -111,13 +117,13 @@ MSMC_hmm makeStandardHmm() {
   auto lambdaVec = new double[nrTimeSegments];
   lambdaVec[] = 1.0;
   auto subpopLabels = new size_t[nrHaplotypes];
-  auto model = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments);
+  auto model = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, false);
 
   stderr.writeln("generating propagation core");
   auto propagationCore = new PropagationCoreFast(model, 1000);
   
-  auto segsites = readSegSites(inputFileName);
-  estimateTotalBranchlengths(segsites, model, 40);
+  auto segsites = readSegSites(inputFileName, false, [], false);
+  estimateTotalBranchlengths(segsites, model);
 
   stderr.writeln("generating Hidden Markov Model");
   return new MSMC_hmm(propagationCore, segsites);

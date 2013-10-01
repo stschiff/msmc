@@ -45,7 +45,7 @@ double recombinationRate;
 size_t[] subpopLabels;
 auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 uint nrThreads;
-auto nrTtotSegments = 10UL;
+auto nrTtotSegments = 20UL;
 auto verbose = false;
 string outFilePrefix;
 auto memory = false;
@@ -238,18 +238,19 @@ void inferDefaultSubpopLabels(size_t nrHaplotypes) {
 void run() {
   auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, directedEmissions);
   
+  auto nrFiles = inputData.length;
   if(params.nrHaplotypes > 2) {
     if(treeFileNames.length == 0) {
       auto cnt = 0;
       foreach(i, data; taskPool.parallel(inputData)) {
-        logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+        logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, nrFiles));
         estimateTotalBranchlengths(data, params);
       }
     }
     else {
       auto cnt = 0;
       foreach(data; taskPool.parallel(zip(inputData, treeFileNames))) {
-        logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, inputData.length));
+        logInfo(format("\r[%s/%s] estimating total branchlengths", ++cnt, nrFiles));
         readTotalBranchlengths(data[0], params, data[1]);
       }
     }
@@ -302,21 +303,16 @@ void printMatrix(string filename, double[] eVec, double[][] eMat) {
 
 void printLoop(string filename, MSMCmodel params, double logLikelihood) {
   auto f = File(filename, "a");
-  f.writefln("%s\t%s\t%s", params.recombinationRate, logLikelihood, params.lambdaVec.map!"text(a)".join(",").array());
+  f.writefln("%s\t%.2f\t%s\t%s", params.recombinationRate, logLikelihood, params.timeIntervals.boundaries.map!(a => text(a * params.mutationRate)).join(",").array(), params.lambdaVec.map!(a => text(a / mutationRate)).join(",").array());
 }
 
-void printFinal(string filename, MSMCmodel params) {
+void printFinal(string filename, MSMCmodel params) { 
   auto f = File(filename, "w");
-  f.write("time_index\tleft_time_boundary\tright_time_boundary\tleft_time_boundary_unscaled\tright_time_boundary_unscaled");
+  f.write("time_index\tleft_time_boundary\tright_time_boundary");
   auto nrSubpopPairs = params.nrSubpopulations * (params.nrSubpopulations + 1) / 2;
   foreach(i; 0 .. params.nrSubpopulations) {
     foreach(j; i .. params.nrSubpopulations) {
       f.writef("\tlambda_%s%s", i, j);
-    }
-  }
-  foreach(i; 0 .. params.nrSubpopulations) {
-    foreach(j; i .. params.nrSubpopulations) {
-      f.writef("\tlambda_%s%s_unscaled", i, j);
     }
   }
   f.write("\n");
@@ -324,10 +320,7 @@ void printFinal(string filename, MSMCmodel params) {
   foreach(i; 0 .. params.nrTimeIntervals) {
     auto left = params.timeIntervals.leftBoundary(i);
     auto right = params.timeIntervals.rightBoundary(i);
-    f.writef("%s\t%s", i, left, right, left * mutationRate, right * mutationRate);
-    foreach(j; 0 .. nrSubpopPairs) {
-      f.writef("\t%s", params.lambdaVec[lambdaIndex++]);
-    }
+    f.writef("%s\t%s\t%s", i, left * mutationRate, right * mutationRate);
     foreach(j; 0 .. nrSubpopPairs) {
       f.writef("\t%s", params.lambdaVec[lambdaIndex++] / mutationRate);
     }
