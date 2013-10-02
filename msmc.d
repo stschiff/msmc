@@ -45,7 +45,7 @@ double recombinationRate;
 size_t[] subpopLabels;
 auto timeSegmentPattern = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 uint nrThreads;
-auto nrTtotSegments = 20UL;
+size_t nrTtotSegments;
 auto verbose = false;
 string outFilePrefix;
 auto memory = false;
@@ -74,7 +74,7 @@ auto helpString = "Usage: msmc [options] <datafiles>
           more than two haplotypes. Using the -R option is recommended for more than 2 haplotypes.
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
     -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
-    -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [default=10]
+    -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [defaults to the same number of segments specified through -p]
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
           number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
           coming from each subpopulation, set this to 0,0,1,1
@@ -181,7 +181,9 @@ void parseCommandLine(string[] args) {
   }
   if(isNaN(recombinationRate))
     recombinationRate = mutationRate / 4.0;
-  nrTimeSegments = reduce!"a+b"(timeSegmentPattern);
+  nrTimeSegments = timeSegmentPattern.reduce!"a+b"();
+  if(nrTtotSegments == 0)
+    nrTtotSegments = nrTimeSegments;
   auto nrSubpops = MarginalTripleIndex.computeNrSubpops(subpopLabels);
   auto nrMarginals = nrTimeSegments * nrSubpops * (nrSubpops + 1) / 2;
   if(lambdaVec.length == 0) {
