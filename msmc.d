@@ -190,6 +190,10 @@ void parseCommandLine(string[] args) {
     lambdaVec = new double[nrMarginals];
     lambdaVec[] = 1.0;
   }
+  else {
+    // this is necessary because we read in a scaled lambdaVec.
+    lambdaVec[] *= mutationRate;
+  }
   enforce(treeFileNames.length == 0 || treeFileNames.length == inputFileNames.length);
   enforce(lambdaVec.length == nrMarginals, "initialLambdaVec must have correct length");
   
