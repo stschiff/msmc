@@ -19,11 +19,6 @@ To build MSMC yourself, the [GNU Scientific Library (GSL)](http://www.gnu.org/so
 
 To build the program, have a look at the two Makefiles. Adjust the path to the GSL and eventually run the `release` target. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
 
-The main program can be called via the command `msmc`. It outputs several subcommands when called without further options. Each subprogram outputs all its options if called without options.
-
-# Preparing the input files
-
-## Format 
 MSMC takes as input several files, one for each chromosome, each with a list of segregating sites, including the number of homozygous called sites between. Here is an example bit of an input file for MSMC:
 
     1   58432	63	TCCC

@@ -26,41 +26,28 @@ import model.msmc_model;
 import model.triple_index;
 import model.triple_index_marginal;
 import powell;
+import logger;
 
-class MaximizationStep {
-  
-  const double[][] expectationResult;
-  double[][] modelTransitions;
-  const size_t[] timeSegmentPattern;
-  MSMCmodel initialParams; 
-  MSMCmodel updatedParams;
-  
-  bool fixedPopSize, fixedRecombination;
-  
-  this(in double[][] expectationResult, MSMCmodel initialParams, in size_t[] timeSegmentPattern) {
-    enforce(reduce!"a+b"(timeSegmentPattern) == initialParams.nrTimeIntervals);
-    this.expectationResult = expectationResult;
-    this.initialParams = initialParams;
-    this.timeSegmentPattern = timeSegmentPattern;
+MSMCmodel getMaximization(double[] eVec, double[][] eMat, MSMCmodel params, in size_t[] timeSegmentPattern,
+                          bool fixedPopSize, bool fixedRecombination)
+{
+  auto minFunc = new MinFunc(eVec, eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
+
+  auto powell = new Powell!MinFunc(minFunc);
+  auto x = minFunc.initialValues();
+  auto startVal = minFunc(x);
+  powell.init(x);  
+  double[] xNew;
+  while(powell.iter < 200 && !powell.finished()) {
+    logInfo(format("\r  * [%s/200(max)] Maximization Step", powell.iter));
+    xNew = powell.step();
+    if(powell.iter == 200) {
+      logInfo("WARNING: Powell's maximization method exceeding 200 iterations. Taking best value as maximum.");
+    }
   }
-  
-  void run(bool verboseMaximization) {
-    auto minFunc = new MinFunc(expectationResult, initialParams, timeSegmentPattern, fixedPopSize, fixedRecombination);
-    auto powell = new Powell!MinFunc(minFunc, verboseMaximization);
-    auto x = minFunc.initialValues();
-    auto xNew = powell.minimize(x);
-    updatedParams = minFunc.makeParamsFromVec(xNew);
-    modelTransitions = minFunc.modelTransitions(updatedParams);
-  }
-  
-  double[][] getModelTransitions() {
-    return modelTransitions;
-  }
-  
-  MSMCmodel getUpdatedParams() {
-    return updatedParams;
-  }
-  
+  auto endVal = minFunc(xNew);
+  logInfo(format(", Q-function before: %s, after:%s\n", startVal, endVal));
+  return minFunc.makeParamsFromVec(xNew);
 }
 
 class MinFunc {
@@ -69,13 +56,17 @@ class MinFunc {
   MSMCmodel initialParams;
   const size_t[] timeSegmentPattern;
   size_t nrSubpopPairs, nrParams;
-  const double[][] expectationResult;
+  const double[] expectationResultVec;
+  const double[][] expectationResultMat;
   bool fixedPopSize, fixedRecombination;
   
-  this(in double[][] expectationResult, MSMCmodel initialParams, in size_t[] timeSegmentPattern, bool fixedPopSize, bool fixedRecombination) {
+  this(in double[] expectationResultVec, in double[][] expectationResultMat, MSMCmodel initialParams,
+       in size_t[] timeSegmentPattern, bool fixedPopSize, bool fixedRecombination)
+  {
     this.initialParams = initialParams;
     this.timeSegmentPattern = timeSegmentPattern;
-    this.expectationResult = expectationResult;
+    this.expectationResultVec = expectationResultVec;
+    this.expectationResultMat = expectationResultMat;
     this.fixedPopSize = fixedPopSize;
     this.fixedRecombination = fixedRecombination;
     nrSubpopPairs = initialParams.nrSubpopulations * (initialParams.nrSubpopulations + 1) / 2;
@@ -172,7 +163,7 @@ class MinFunc {
   MSMCmodel makeParamsFromVec(in double[] x) {
     auto lambdaVec = fixedPopSize ? getLambdaVecFromXfixedPop(x) : getLambdaVecFromX(x);
     auto recombinationRate = fixedRecombination ? initialParams.recombinationRate : getRecombinationRateFromX(x);
-    return new MSMCmodel(initialParams.mutationRate, recombinationRate, initialParams.subpopLabels, lambdaVec, initialParams.nrTimeIntervals, initialParams.nrTtotIntervals);
+    return new MSMCmodel(initialParams.mutationRate, recombinationRate, initialParams.subpopLabels, lambdaVec, initialParams.nrTimeIntervals, initialParams.nrTtotIntervals, initialParams.emissionRate.directedEmissions);
   }
   
   double[] getLambdaVecFromXfixedPop(in double[] x)
@@ -234,21 +225,14 @@ class MinFunc {
 
   double logLikelihood(MSMCmodel params) {
     double ret = 0.0;
-    foreach(bv; 0 .. initialParams.nrMarginals) {
-      foreach(au; 0 .. initialParams.nrMarginals) {
-        auto degen = cast(double)initialParams.marginalIndex.getDegeneracyForMarginalIndex(au);
-        // ret += expectationResult[au][bv] / degen *
-        //        log(params.transitionRate.transitionProbabilityMarginal(au, bv) / degen);
-        ret += expectationResult[au][bv] * log(params.transitionRate.transitionProbabilityMarginal(au, bv));
+    foreach(au; 0 .. initialParams.nrMarginals) {
+      foreach(bv; 0 .. initialParams.nrMarginals) {
+        ret += expectationResultMat[au][bv] * log(params.transitionRate.transitionProbabilityQ2(au, bv));
       }
+      ret += expectationResultVec[au] * log(
+        params.transitionRate.transitionProbabilityQ1(au) + params.transitionRate.transitionProbabilityQ2(au, au)
+      );
     }
-    return ret;
-  }
-
-  double[][] modelTransitions(MSMCmodel params) {
-    auto ret = new double[][](initialParams.nrMarginals, initialParams.nrMarginals);
-    foreach(au; 0 .. initialParams.nrMarginals) foreach(bv; 0 .. initialParams.nrMarginals)
-      ret[au][bv] = initialParams.transitionRate.transitionProbabilityMarginal(au, bv);
     return ret;
   }
 
@@ -260,11 +244,12 @@ unittest {
   auto lambdaVec = new double[12];
   foreach(i; 0 .. 12)
     lambdaVec[i] = cast(double)i + 1.0;
-  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4);
-  auto expectationResult = new double[][](params.nrMarginals, params.nrMarginals);
+  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4, false);
+  auto expectationResultVec = new double[params.nrMarginals];
+  auto expectationResultMat = new double[][](params.nrMarginals, params.nrMarginals);
   auto timeSegmentPattern = [2UL, 2];
   
-  auto minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, false, false);
+  auto minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, false, false);
   auto x = [1, 1.5, 3, 4, 4.5, 6, 1.2];
   assert(minFunc.getLambdaVecFromX(x) == [1, 1.5, 3, 1, 1.5, 3, 4, 4.5, 6, 4, 4.5, 6]);
   assert(minFunc.getRecombinationRateFromX(x) == 1.2);
@@ -273,31 +258,29 @@ unittest {
   assert(minFunc.invalid(x));
   
 
-  minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, true, false);
+  minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, true, false);
   x = [23.4, 35.6, 1.4];
   assert(minFunc.getLambdaVecFromXfixedPop(x) == [1, 23.4, 3, 4, 23.4, 6.0, 7.0, 35.6, 9.0, 10.0, 35.6, 12]);
   assert(minFunc.getRecombinationRateFromX(x) == 1.4);
 
-  minFunc = new MinFunc(expectationResult, params, timeSegmentPattern, false, true);
+  minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, false, true);
   x = [1, 2, 3, 4, 5, 6];
   assert(minFunc.getLambdaVecFromX(x) == [1, 2, 3, 1, 2, 3, 4, 5, 6, 4, 5, 6]);
 }
   
-unittest {
-  import std.random;
-  writeln("test maximization step");
-  auto lambdaVec = new double[12];
-  lambdaVec[] = 1.0;
-  auto params = new MSMCmodel(0.01, 0.001, [0UL, 0, 1, 1], lambdaVec, 4, 4);
-
-  auto expectationMatrix = new double[][](12, 12);
-  foreach(i; 0 .. 12) foreach(j; 0 .. 12)
-    expectationMatrix[i][j] = params.transitionRate.transitionProbabilityMarginal(i, j) * uniform(700, 1300);
-  auto timeSegmentPattern = [2UL, 2];
-  auto maximizationStep = new MaximizationStep(expectationMatrix, params, timeSegmentPattern);
-  maximizationStep.run(false);
-  auto updatedParams = maximizationStep.getUpdatedParams();
-    
-  writeln("Maximization test: actual params: ", params);
-  writeln("Maximization test: inferred params: ", updatedParams);
-}
+// unittest {
+//   import std.random;
+//   writeln("test maximization step");
+//   auto lambdaVec = new double[12];
+//   lambdaVec[] = 1.0;
+//   auto params = new MSMCmodel(0.01, 0.001, [0UL, 0, 1, 1], lambdaVec, 4, 4);
+// 
+//   auto expectationMatrix = new double[][](12, 12);
+//   foreach(i; 0 .. 12) foreach(j; 0 .. 12)
+//     expectationMatrix[i][j] = params.transitionRate.transitionProbabilityMarginal(i, j) * uniform(700, 1300);
+//   auto timeSegmentPattern = [2UL, 2];
+//   auto updatedParams = getMaximization(expectationMatrix, params, timeSegmentPattern, false, true);
+//     
+//   writeln("Maximization test: actual params: ", params);
+//   writeln("Maximization test: inferred params: ", updatedParams);
+// }

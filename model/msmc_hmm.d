@@ -77,7 +77,6 @@ class MSMC_hmm {
   State_t currentBackwardState, nextBackwardState;
   
   const SegSite_t[] segsites;
-  string logTag;
   double[] scalingFactors;
   const PropagationCore propagationCore;
   StateVecAllocator stateVecAllocator;
@@ -86,11 +85,9 @@ class MSMC_hmm {
   State_t runBackwardDummy;
   bool have_run_forward;
   
-  this(in PropagationCore propagationCore, in SegSite_t[] segsites, string logTag="") {
+  this(in PropagationCore propagationCore, in SegSite_t[] segsites) {
     this.propagationCore = propagationCore;
-    this.logTag = logTag;
     this.maxDistance = propagationCore.maxDistance;
-    stderr.writeln(text(logTag, "loading ", segsites.length, " SNPs"));
     this.segsites = chop_segsites(segsites, maxDistance);
     this.L = this.segsites.length;
     this.hmmStrideWidth = hmmStrideWidth;
@@ -98,7 +95,6 @@ class MSMC_hmm {
     scalingFactors = new double[L];
     scalingFactors[] = 0.0;
     
-    stderr.writeln(text(logTag, "allocating memory for ", L, " forward variables"));
     auto stateSize = propagationCore.forwardStateSize;
     stateVecAllocator = new StateVecAllocator(L * stateSize);
     forwardStates = new State_t[L];
@@ -114,13 +110,6 @@ class MSMC_hmm {
     currentBackwardIndex = L - 1;
   }
 
-  this(in PropagationCore propagationCore, string filename, string logTag="")
-  {
-    stderr.writeln(logTag, "reading data");
-    auto segsites = readSegSites(filename, propagationCore.getMSMC.nrHaplotypes, propagationCore.getMSMC.tTotIntervals);
-    this(propagationCore, segsites, logTag);
-  }
-  
   double logLikelihood() const {
     return scalingFactors.map!log().reduce!"a+b"();
   }
@@ -158,27 +147,33 @@ class MSMC_hmm {
     have_run_forward = true;
   }
 
-  double[][] runBackward(size_t hmmStrideWidth=1000) {
+  Tuple!(double[], double[][]) runBackward(size_t hmmStrideWidth=1000) {
     enforce(have_run_forward);
 
     auto nrMarginals = propagationCore.getMSMC.nrMarginals;
 
-    auto forwardBackwardResult = new double[][](nrMarginals, nrMarginals);
-    foreach(i; 0 .. nrMarginals)
-      forwardBackwardResult[i][] = 0.0;
+    auto forwardBackwardResultVec = new double[nrMarginals];
+    auto forwardBackwardResultMat = new double[][](nrMarginals, nrMarginals);
+    foreach(i; 0 .. nrMarginals) {
+      forwardBackwardResultVec[i] = 0.0;
+      forwardBackwardResultMat[i][] = 0.0;
+    }
     
     currentBackwardIndex = L - 1;
-    auto expec = new double[][](nrMarginals, nrMarginals);
+    auto expecVec = new double[nrMarginals];
+    auto expecMat = new double[][](nrMarginals, nrMarginals);
     for(size_t pos = segsites[$ - 1].pos; pos > segsites[0].pos && pos <= segsites[$ - 1].pos; pos -= hmmStrideWidth) {
-      getSingleExpectation(pos, expec);
-      foreach(i; 0 .. nrMarginals)
-        forwardBackwardResult[i][] += expec[i][];
+      getSingleExpectation(pos, expecVec, expecMat);
+      foreach(i; 0 .. nrMarginals) {
+        forwardBackwardResultVec[i] += expecVec[i];
+        forwardBackwardResultMat[i][] += expecMat[i][];
+      }
     }
 
-    return forwardBackwardResult;
+    return tuple(forwardBackwardResultVec, forwardBackwardResultMat);
   }
   
-  private void getSingleExpectation(size_t pos, double[][] ret)
+  private void getSingleExpectation(size_t pos, double[] expecVec, double[][] expecMat)
   in {
     assert(pos > segsites[0].pos, text(pos, " ", segsites[0].pos));
     assert(pos <= segsites[$ - 1].pos, text([pos, segsites[0].pos]));
@@ -186,8 +181,10 @@ class MSMC_hmm {
   }
   out {
     auto sum = 0.0;
-    foreach(row; ret)
-      sum += reduce!"a+b"(row);
+    foreach(i; 0 .. propagationCore.getMSMC.nrMarginals) {
+      sum += reduce!"a+b"(expecMat[i]);
+      sum += expecVec[i];
+    }
     assert(approxEqual(sum, 1.0, 1.0e-8, 0.0), text(sum));
   }
   body {    
@@ -195,7 +192,7 @@ class MSMC_hmm {
     getBackwardState(expectationBackwardDummy, pos);
     auto site = getSegSite(pos);
     
-    propagationCore.getTransitionExpectation(expectationForwardDummy, expectationBackwardDummy, site, ret);
+    propagationCore.getTransitionExpectation(expectationForwardDummy, expectationBackwardDummy, site, expecVec, expecMat);
   } 
   
   void getForwardState(State_t s, size_t pos)
@@ -311,7 +308,7 @@ unittest {
   
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   
   auto propagationCoreNaive = new PropagationCoreNaive(params, 100);
@@ -319,11 +316,11 @@ unittest {
 
   auto nrS = propagationCoreFast.getMSMC.nrStates;
   
-  auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, "model/hmm_testData_tMRCA.txt");
-  auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, "model/hmm_testData_tMRCA.txt");
-  stderr.writeln("fast forward");
+  auto data = readSegSites("model/hmm_testData.txt", false, [], false);
+  
+  auto msmc_hmm_fast = new MSMC_hmm(propagationCoreFast, data);
+  auto msmc_hmm_naive = new MSMC_hmm(propagationCoreNaive, data);
   msmc_hmm_fast.runForward();
-  stderr.writeln("naive forward");
   msmc_hmm_naive.runForward();
   
   
@@ -377,15 +374,17 @@ unittest {
     assert(approxEqual(sum_f, 1.0, lvl, 0.0), text(sum_f));
     assert(approxEqual(sum_n, 1.0, lvl, 0.0), text(sum_n));
   }
-  stderr.writeln("fast backward");
   auto expec = msmc_hmm_fast.runBackward();
-  stderr.writeln("naive backward");
   auto expec_n = msmc_hmm_naive.runBackward();
-  foreach(alpha; 0 .. params.nrTimeIntervals) {
-    foreach(beta; 0 .. params.nrTimeIntervals) {
+  foreach(au; 0 .. params.nrMarginals) {
+    assert(
+        approxEqual(expec[0][au], expec_n[0][au], lvl, 0.0),
+        text([expec[0][au], expec_n[0][au]])
+    );
+    foreach(bv; 0 .. params.nrMarginals) {
       assert(
-          approxEqual(expec[alpha][beta], expec_n[alpha][beta], lvl, 0.0),
-          text([expec[alpha][beta], expec_n[alpha][beta]])
+          approxEqual(expec[1][au][bv], expec_n[1][au][bv], lvl, lvl),
+          text([expec[1][au][bv], expec_n[1][au][bv]])
       );
     }
   }

@@ -26,6 +26,7 @@ import std.math;
 import std.c.stdlib;
 import std.regex : match, regex, ctRegex;
 import std.exception;
+import std.range;
 import model.time_intervals;
 
 class SegSite_t {
@@ -63,7 +64,7 @@ string[] canonicalAlleleOrder(size_t M) {
   string[] allele_order;
   assert(M >= 2);
   auto formatStr = format("%%0%db", M);
-  foreach(i; 0 .. 2 ^^ (M - 1)) {
+  foreach(i; 0 .. 2 ^^ M) {
     allele_order ~= format(formatStr, i);
   }
   return allele_order;
@@ -71,21 +72,8 @@ string[] canonicalAlleleOrder(size_t M) {
 
 unittest {
   writeln("test canonicalAlleleOrder");
-  assert(canonicalAlleleOrder(2) == ["00", "01"]);
-  assert(canonicalAlleleOrder(3) == ["000", "001", "010", "011"]);
-  assert(canonicalAlleleOrder(4) == [
-      "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111"
-    ]);
-  assert(canonicalAlleleOrder(5) == [
-      "00000", "00001", "00010", "00011", "00100", "00101", "00110", "00111",
-      "01000", "01001", "01010", "01011", "01100", "01101", "01110", "01111"
-    ]);
-  assert(canonicalAlleleOrder(6) == [
-      "000000", "000001", "000010", "000011", "000100", "000101", "000110", "000111",
-      "001000", "001001", "001010", "001011", "001100", "001101", "001110", "001111",
-      "010000", "010001", "010010", "010011", "010100", "010101", "010110", "010111",
-      "011000", "011001", "011010", "011011", "011100", "011101", "011110", "011111"
-    ]);
+  assert(canonicalAlleleOrder(2) == ["00", "01", "10", "11"]);
+  assert(canonicalAlleleOrder(3) == ["000", "001", "010", "011", "100", "101", "110", "111"]);
 }
 
 string invertAllele(string allele) {
@@ -127,18 +115,16 @@ unittest {
 }
 
 void checkDataLine(const char[] line) {
-  auto r = regex(r"^\w+\s\d+\s\d+(\s[ACTG01\?,]+(\s[\d\.]+){0,1}){0,1}$");
-  // enum r = ctRegex!(r"^\w+\s\d+\s\d+(\s[ACTG01\?,]+(\s[\d\.]+){0,1}){0,1}$");
+  auto r = regex(r"^\w+\s\d+\s\d+(\s[ACTG01\?,]+){0,1}$");
   enforce(match(line, r));
 }
 
 unittest {
-  assertNotThrown(checkDataLine("1 20 5 AACC,AACA 4.56"));
+  assertThrown(checkDataLine("1 20 5 AACC,AACA 2.44"));
   assertNotThrown(checkDataLine("1 20 5 AACC"));
   assertNotThrown(checkDataLine("4 5 2"));
-  assertNotThrown(checkDataLine("1 10 5 ACC 2.45"));
-  assertThrown(checkDataLine("1 20 5 AGGSSXX 5.11"));
-  assertThrown(checkDataLine("1 20 5 5.11"));
+  assertNotThrown(checkDataLine("1 10 5 ACC"));
+  assertThrown(checkDataLine("1 20 5 AGGSSXX"));
 }
 
 size_t getNrHaplotypesFromFile(string filename) {
@@ -159,7 +145,7 @@ size_t getNrHaplotypesFromFile(string filename) {
 
 unittest {
   auto tmp = File("/tmp/nrHaplotypesTest.txt", "w");
-  tmp.writeln("1 10 5 ACC,CCA 2.45");
+  tmp.writeln("1 10 5 ACC,CCA");
   tmp.close();
   assert(getNrHaplotypesFromFile("/tmp/nrHaplotypesTest.txt") == 3);
   tmp = File("/tmp/nrHaplotypesTest.txt", "w");
@@ -168,22 +154,26 @@ unittest {
   assert(getNrHaplotypesFromFile("/tmp/nrHaplotypesTest.txt") == 2);
 }
 
-SegSite_t[] readSegSites(string filename, size_t M, in TimeIntervals ttotIntervals) {
-  // format: chr, position, nr_calledSites, [alleles, [ttot]]
+SegSite_t[] readSegSites(string filename, bool directedEmissions, size_t[] indices, bool skipAmbiguous) {
+  // format: chr, position, nr_calledSites, [alleles]
   // if no alleles are given, assume M=2 and "01"
   // alleles can be given as comma-separated list of alternative alleles
   
-  stderr.writeln("reading data from file: ", filename);
-  assert(M >= 2);
-  
   SegSite_t[] ret;
 
+  size_t M;
+  if(indices.length == 0) {
+    M = getNrHaplotypesFromFile(filename);
+    indices = iota(M).array();
+  }
+  else {
+    M = indices.length;
+  }
   int obsMap[string];
   auto allele_order = canonicalAlleleOrder(M);
   auto index = 1; // index=0 indicates missing data 
   foreach(allele; allele_order) {
     obsMap[allele] = index;
-    obsMap[invertAllele(allele)] = index; // symmetrizing states: 1101 is the same as 0010 !
     ++index;
   }
   
@@ -198,63 +188,69 @@ SegSite_t[] readSegSites(string filename, size_t M, in TimeIntervals ttotInterva
       lastPos = pos - nrCalledSites;
     }
     
-    // use nan as dummy value for Ttot
-    double Ttot; 
-    if(fields.length > 4)
-      Ttot = to!double(fields[4]);
-    else
-      Ttot = 0.0;
-    auto i_Ttot = ttotIntervals.findIntervalForTime(Ttot);
-    
     enforce(nrCalledSites <= pos - lastPos);
     enforce(nrCalledSites > 0);
     
     if(fields.length > 2) {
       // checking whether we have any "N" or "?" in the data, which would mark it as missing data.
       auto is_missing = false;
-      foreach(raw_allele_string; split(fields[3], ",")) {
-        foreach(pos_; 0 .. M) {
-          if(pos_ >= raw_allele_string.length) {
-            stderr.writefln("Haplotype index %s exceeds number of haplotypes in datafile", pos_);
-            exit(0);
+      auto raw_allele_strings = split(fields[3], ",");
+      if(!is_missing) {
+        foreach(raw_allele_string; raw_allele_strings) {
+          foreach(i; indices) {
+            if(i >= raw_allele_string.length) {
+              stderr.writeln("Haplotype index exceeds number of haplotypes in datafile");
+              exit(0);
+            }
+            if(!canFind("ACTG01", raw_allele_string[i])) {
+              is_missing = true;
+              break;
+            }
           }
-          if(!canFind("ACTG01", raw_allele_string[pos_])) {
-            is_missing = true;
-            break;
-          }
+          // if(indices.any!(a => !canFind("ACTG01", raw_allele_string[a]))) {
+          //   is_missing = true;
+          //   break;
+          // }
         }
       }
       if(is_missing) {
         if(nrCalledSites < pos - lastPos) { // missing data
-          ret ~= new SegSite_t(pos - nrCalledSites, 0, i_Ttot);
+          ret ~= new SegSite_t(pos - nrCalledSites, 0, 0);
         }
         if(nrCalledSites > 1)
-          ret ~= new SegSite_t(pos - 1, 1, i_Ttot);
-        ret ~= new SegSite_t(pos, 0, i_Ttot);
+          ret ~= new SegSite_t(pos - 1, 1, 0);
+        ret ~= new SegSite_t(pos, 0, 0);
         lastPos = pos;
       }
       else {
         size_t[] allele_indices;
         foreach(allele_string; split(fields[3], ",")) {
-          enforce(allele_string.length == M);
-          auto normalized = normalizeAlleleString(allele_string.idup);
+          char[] selected_allele_string;
+          foreach(i; indices)
+            selected_allele_string ~= allele_string[i];
+          enforce(selected_allele_string.length == M);
+          auto normalized = directedEmissions ? selected_allele_string : 
+                            normalizeAlleleString(selected_allele_string.idup);
           allele_indices ~= obsMap[normalized];
         }
         if(nrCalledSites < pos - lastPos) { // missing data
-          ret ~= new SegSite_t(pos - nrCalledSites, 0, i_Ttot);
+          ret ~= new SegSite_t(pos - nrCalledSites, 0, 0);
         }
-        ret ~= new SegSite_t(pos, allele_indices, i_Ttot);
+        allele_indices = allele_indices.uniq().array();
+        if(skipAmbiguous && allele_indices.length > 1)
+          ret ~= new SegSite_t(pos, 0, 0);
+        else
+          ret ~= new SegSite_t(pos, allele_indices, 0);
         lastPos = pos;
       }
     }
     else {
       if(nrCalledSites < pos - lastPos) { // missing data
-        ret ~= new SegSite_t(pos - nrCalledSites, 0, i_Ttot);
+        ret ~= new SegSite_t(pos - nrCalledSites, 0, 0);
       }
-      ret ~= new SegSite_t(pos, 2, i_Ttot); // [2] means heterozygous
+      ret ~= new SegSite_t(pos, 2, 0); // [2] means heterozygous
       lastPos = pos;
     }
-    
   }
   
   foreach(i; 1 .. ret.length) {
@@ -267,16 +263,13 @@ SegSite_t[] readSegSites(string filename, size_t M, in TimeIntervals ttotInterva
 unittest {
   writeln("test readSegSites");
   auto tmp_file = File("/tmp/msmc_data_unittest.tmp", "w");
-  tmp_file.writeln("1 1000000 42 AACC 2.56");
-  tmp_file.writeln("1 1000004 2 ACCG 2.3");
-  tmp_file.writeln("1 1000008 3 ACC?,ATTA 4.55");
-  tmp_file.writeln("1 1000012 4 ACCG,TTGA 9.123");
+  tmp_file.writeln("1 1000000 42 AACC");
+  tmp_file.writeln("1 1000004 2 ACCG");
+  tmp_file.writeln("1 1000008 3 ACC?,ATTA");
+  tmp_file.writeln("1 1000012 4 ACCG,TTGA");
   tmp_file.close();
 
-  auto ttotIntervals = TimeIntervals.standardTotalBranchlengthIntervals(1, 4);
-  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp", 4, ttotIntervals);
-  foreach(s; segsites)
-    assert(s.i_Ttot == 0);
+  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp", false, [], false);
   assert(segsites[0].pos == 1000000 && segsites[0].obs == [4]);
   assert(segsites[1].pos == 1000002 && segsites[1].obs == [0]);
   assert(segsites[3].pos == 1000005 && segsites[3].obs == [0]);
@@ -295,10 +288,7 @@ unittest {
   tmp_file.writeln("1 1000012 4 AA,TT");
   tmp_file.close();
 
-  auto ttotIntervals = TimeIntervals.standardTotalBranchlengthIntervals(1, 2);
-  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp", 2, ttotIntervals);
-  foreach(s; segsites)
-    assert(s.i_Ttot == 0);
+  auto segsites = readSegSites("/tmp/msmc_data_unittest.tmp", false, [], false);
   assert(segsites[0].pos == 1000000 && segsites[0].obs == [2]);
   assert(segsites[1].pos == 1000002 && segsites[1].obs == [0]);
   assert(segsites[3].pos == 1000005 && segsites[3].obs == [0]);
@@ -306,4 +296,23 @@ unittest {
   assert(segsites[5].pos == 1000008 && segsites[5].obs == [0]);
   assert(segsites[6].pos == 1000012 && segsites[6].obs == [1, 1]);
   
+}
+
+double getTheta(in SegSite_t[][] data, size_t nrHaplotypes) {
+  size_t nr_segsites; 
+  size_t called_sites;
+  foreach(d; data) {
+    size_t lastPos = 0;
+    foreach(dd; d) {
+      if(dd.obs[0] > 0) {
+        if(lastPos > 0)
+          called_sites += dd.pos - lastPos;
+        if(dd.obs.any!(o => o > 1))
+          nr_segsites += 1;
+      }
+      lastPos = dd.pos;
+    }
+  }
+  auto watterson = iota(1, nrHaplotypes).map!"1.0 / a"().reduce!"a+b"();
+  return cast(double)nr_segsites / cast(double)called_sites / watterson;
 }

@@ -317,10 +317,13 @@ class PropagationCoreNaive : PropagationCore {
   }
   
   override void getTransitionExpectation(State_t f, State_t b,
-      in SegSite_t to_segsite, double[][] ret) const
+      in SegSite_t to_segsite, double[] eVec, double[][] eMat) const
   {
-    foreach(au; 0 .. msmc.marginalIndex.nrMarginals)
-      ret[au][] = 0.0;
+    foreach(au; 0 .. msmc.nrMarginals) {
+      eVec[au] = 0.0;
+      eMat[au][] = 0.0;
+    }
+
     foreach(aij; 0 .. msmc.nrStates) {
       auto au = msmc.marginalIndex.getMarginalIndexFromIndex(aij);
 
@@ -330,8 +333,14 @@ class PropagationCoreNaive : PropagationCore {
       e /= cast(double)to_segsite.obs.length;
       foreach(bkl; 0 .. msmc.nrStates) {
         auto bv = msmc.marginalIndex.getMarginalIndexFromIndex(bkl);
-        ret[au][bv] += f.vec[bkl] * gsl_matrix_get(transitionMatrix, aij, bkl) *
-                       b.vec[aij] * e;
+        if(aij != bkl) {
+          eMat[au][bv] += f.vec[bkl] * gsl_matrix_get(transitionMatrix, aij, bkl) *
+                          b.vec[aij] * e;
+          // stderr.writefln("eMat[%s][%s]=%s, %s, %s, %s, %s", aij, bkl, eMat[aij][bkl], f.vec[bkl], gsl_matrix_get(transitionMatrix, aij, bkl), b.vec[aij], e);
+        }
+        else
+          eVec[au] += f.vec[bkl] * gsl_matrix_get(transitionMatrix, aij, bkl) *
+                          b.vec[aij] * e;
       }
     }
   }

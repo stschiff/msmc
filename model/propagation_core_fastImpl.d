@@ -190,9 +190,7 @@ class PropagationCoreFast : PropagationCore {
     auto e = new double[msmc.nrMarginals];
     
     foreach(au; 0 .. msmc.nrMarginals) {
-      auto index = msmc.marginalIndex.getIndexFromMarginalIndex(au);
-      auto triple = msmc.marginalIndex.getTripleFromIndex(index);
-      e[au] = missing_data ? 1.0 : msmc.emissionProbHom(triple.time, i);
+      e[au] = missing_data ? 1.0 : emissionProbsMarginal[i][au];
     }
     
     foreach(au; 0 .. msmc.nrMarginals) {
@@ -392,19 +390,24 @@ class PropagationCoreFast : PropagationCore {
   }
   
   override void getTransitionExpectation(State_t f, State_t b,
-      in SegSite_t to_segsite, double[][] ret) const
+      in SegSite_t to_segsite, double[] eVec, double[][] eMat) const
   {
-    foreach(ref row; ret)
-      row[] = 0.0;
     foreach(bv; 0 .. msmc.nrMarginals) {
       foreach(au; 0 .. msmc.nrMarginals) {
-        ret[au][bv] =
+        eMat[au][bv] =
             f.vecMarginal[bv] * transitionMatrixQ2[au][bv] * b.vecMarginalEmission[au];
       }
     }
+    eVec[] = 0.0;
     foreach(aij; 0 .. msmc.nrStates) {
       auto au = msmc.marginalIndex.getMarginalIndexFromIndex(aij);
-      ret[au][au] += f.vec[aij] * fullE(to_segsite, aij) * transitionMatrixQ1[au] * b.vec[aij];
+      eMat[au][au] -= f.vec[aij] * transitionMatrixQ2[au][au] * fullE(to_segsite, aij) * b.vec[aij];
+      if(eMat[au][au] < 0.0) { // this just corrects tiny numerical errors from the addition-subtraction here.
+        assert(-eMat[au][au] < 1.0e-20);
+        eMat[au][au] = 0.0;
+      }
+      eVec[au] += f.vec[aij] * (transitionMatrixQ1[au] + transitionMatrixQ2[au][au]) * fullE(to_segsite, aij) * 
+                  b.vec[aij];
     }
   }
   
@@ -419,7 +422,7 @@ unittest {
   import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   
   auto maxDist = 10U;
@@ -460,7 +463,7 @@ unittest {
   import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   auto propagationCoreNaive = new PropagationCoreNaive(msmc, 10);
   auto propagationCoreFast = new PropagationCoreFast(msmc, 10);
@@ -507,7 +510,7 @@ unittest {
   import model.propagation_core_naiveImpl;
   auto lambdaVec = new double[30];
   lambdaVec[] = 1.0;
-  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4);
+  auto msmc = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 10, 4, false);
   auto lvl = 1.0e-8;
   auto propagationCoreNaive = new PropagationCoreNaive(msmc, 10);
   auto propagationCoreFast = new PropagationCoreFast(msmc, 10);

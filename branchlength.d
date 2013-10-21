@@ -42,122 +42,172 @@ import model.coalescence_rate;
 import model.rate_integrator;
 import model.propagation_core_fastImpl;
 import model.data;
-import utils;
-import expectation_step;
 
-double recombinationRate;
-double mutationRate;
-size_t nrHaplotypes;
-string inputFileName;
-size_t nrTimeSegments = 40;
-uint nrThreads;
+void estimateTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params) {
 
-void branchlengthMain(string[] args) {
-  parseCommandLine(args);
-  run();
-}
-
-void parseCommandLine(string[] args) {
-  if(args.length == 1)
-    displayHelpMessageAndExit();
-  try {
-    readArguments(args);
-  }
-  catch(Exception e) {
-    stderr.writeln("error in parsing command line: ", e.msg);
-    displayHelpMessageAndExit();
-  }
-}
-  
-void readArguments(string[] args) {
-  getopt(args,
-      std.getopt.config.caseSensitive,
-      "mutationRate|m", &mutationRate,
-      "recombinationRate|r", &recombinationRate,
-      "nrThreads|t", &nrThreads,
-      "nrTimeSegments|n", &nrTimeSegments
-  );
-  if(nrThreads) {
-    std.parallelism.defaultPoolThreads(nrThreads);
-  }
-  enforce(!isNaN(mutationRate), "need to set mutation rate");
-  inputFileName = args[1];
-  nrHaplotypes = getNrHaplotypesFromFile(inputFileName);
-  if(isNaN(recombinationRate))
-    recombinationRate = mutationRate / 4.0;
-  stderr.writeln("found ", nrHaplotypes, " Haplotypes in file");
-}
-
-static void displayHelpMessageAndExit() {
-  stderr.writeln("Usage: msmc branchlength [options] <datafile>
--n, --nrTimeSegments=<int> : nr of time intervals [default=40]
--m, --mutationRate=<double> : mutation rate, scaled by 2N. A recommended value is given by theta/2, where theta 
-      can be computed with \"msmc stats\"
--t, --nrThreads=<int> : number of threads (defaults to nr of CPUs available)
--r, --recombinationRate=<double> : recombination rate, scaled by 2N [default=mutationRate / 4]");
-  exit(0);
-}
-  
-void run() {
-  auto propagationCore = buildPropagationCore();
-  auto msmc_hmm = buildHMM(propagationCore);
+  auto propagationCore = buildPropagationCore(params);
+  auto msmc_hmm = buildHMM(inputData, params.nrHaplotypes, propagationCore);
     
-  stderr.writeln("running forward");
   msmc_hmm.runForward();
   
-  auto f = File(inputFileName, "r");
   auto forwardState = propagationCore.newForwardState();
   auto backwardState = propagationCore.newBackwardState();
 
-  string[] lines;
-  foreach(line; f.byLine()) {
-    lines ~= strip(line).idup;
-  }
-  string[] newLines;
-  foreach_reverse(lineIndex; 0 .. lines.length) {
-    auto fields = split(lines[lineIndex].dup);
-    auto pos = to!int(fields[1]);
-    
-    msmc_hmm.getForwardState(forwardState, pos);
-    msmc_hmm.getBackwardState(backwardState, pos);
-    double ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(0, 1.0);
+  foreach_reverse(ref data; inputData) {
+    msmc_hmm.getForwardState(forwardState, data.pos);
+    msmc_hmm.getBackwardState(backwardState, data.pos);
+    double tLeaf = 2.0 * propagationCore.msmc.timeIntervals.meanTime(0, 2);
     auto max = forwardState.vec[0] * backwardState.vec[0];
-    foreach(i; 0 .. nrTimeSegments) {
+    foreach(i; 0 .. propagationCore.msmc.nrTimeIntervals) {
       auto p = forwardState.vec[i] * backwardState.vec[i];
       if(p > max) {
         max = p;
-        // we need the total branch length, so twice the tMRCA with two haplotypes
-        ttot = 2.0 * propagationCore.msmc.timeIntervals.meanTimeWithLambda(i, 1.0);
+        tLeaf = 2.0 * propagationCore.msmc.timeIntervals.meanTime(i, 2);
       }
     }
-    newLines ~= lines[lineIndex] ~ text("\t", ttot);
+    data.i_Ttot = params.tTotIntervals.findIntervalForTime(tLeaf);
   }
-  foreach_reverse(line; newLines)
-    writeln(line);
 }
   
-private PropagationCoreFast buildPropagationCore() {
-  auto lambdaVec = new double[nrTimeSegments];
+private PropagationCoreFast buildPropagationCore(MSMCmodel params) {
+  auto lambdaVec = new double[params.nrTtotIntervals];
   lambdaVec[] = 1.0;
-  // the factor 2 is just part of the formula for the mean total branch length.
-  auto expectedTtot = 2.0 * TimeIntervals.computeWattersonFactor(nrHaplotypes);
-  // the next factor 2 fakes a two haplotype system with the same total branch length (every branch gets half)
-  auto boundaries = TimeIntervals.getQuantileBoundaries(nrTimeSegments, expectedTtot / 2.0);
-  auto model = new MSMCmodel(mutationRate, recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1);
+  auto expectedTtot =
+      params.emissionRate.directedEmissions ? 2.0 : 2.0 * (1.0 + 1.0 / (params.nrHaplotypes - 1.0));
+  auto boundaries = TimeIntervals.getQuantileBoundaries(params.nrTtotIntervals, expectedTtot / 2.0);
+  auto model = new MSMCmodel(params.mutationRate, params.recombinationRate, [0UL, 0], lambdaVec, boundaries[0 .. $ - 1], 1, params.emissionRate.directedEmissions);
 
-  stderr.writeln("generating propagation core");
   auto propagationCore = new PropagationCoreFast(model, 1000);
   return propagationCore;
 }
   
-private MSMC_hmm buildHMM(PropagationCoreFast propagationCore) {
-  stderr.writeln("loading file ", inputFileName);
-  auto segsites = readSegSites(inputFileName, nrHaplotypes, propagationCore.msmc.tTotIntervals);
-  foreach(ref s; segsites) {
-    if(s.obs.length > 1 || s.obs[0] > 1)
-      s.obs = [2];
+private MSMC_hmm buildHMM(SegSite_t[] inputData, size_t nrHaplotypes, PropagationCoreFast propagationCore) {
+  SegSite_t[] dummyInputData;
+  auto alleles = canonicalAlleleOrder(nrHaplotypes);
+  foreach(s; inputData) {
+    auto dummySite = s.dup;
+    if(s.obs.any!"a>1"()) {
+      auto count_0 = count(alleles[s.obs[0] - 1], '0');
+      auto count_1 = nrHaplotypes - count_0;
+      if(propagationCore.msmc.emissionRate.directedEmissions) {
+        if(count_1 == 1)
+          dummySite.obs = [2];
+        else
+          dummySite.obs = [1];
+      }
+      else {
+        if(count_0 == 1 || count_1 == 1)
+          dummySite.obs = [2];
+        else
+          dummySite.obs = [1];
+      }
+    }
+    dummyInputData ~= dummySite;
   }
     
-  stderr.writeln("generating Hidden Markov Model");
-  return new MSMC_hmm(propagationCore, segsites);
+  return new MSMC_hmm(propagationCore, dummyInputData);
+}
+
+void readTotalBranchlengths(SegSite_t[] inputData, MSMCmodel params, string treeFileName) {
+  auto simTreeParser = new SimTreeParser(treeFileName);
+  auto allele_order = canonicalAlleleOrder(params.nrHaplotypes);
+  foreach(ref segsite; inputData) {
+    auto alleles = allele_order[segsite.obs[0] - 1];
+    auto tTot = simTreeParser.getTLeafTot(segsite.pos);
+    segsite.i_Ttot = params.tTotIntervals.findIntervalForTime(tTot);
+  }
+}
+
+size_t findDerivedPositition(string alleles) {
+  auto pos = 0UL;
+  foreach(i, a; alleles) {
+    if(a == '1') {
+      pos = i;
+      break;
+    }
+  }
+  return pos;
+}
+
+unittest {
+  assert(findDerivedPositition("000100") == 3);
+  assert(findDerivedPositition("100000") == 0);
+  assert(findDerivedPositition("000001") == 5);
+}
+
+
+class SimTreeParser {
+  
+  Tuple!(size_t, double)[] data;
+  size_t lastIndex;
+  
+  this(string treeFileName) {
+    
+    auto treeFile = File(treeFileName, "r");
+    auto pos = 0UL;
+    foreach(line; treeFile.byLine) {
+      auto fields = line.strip().split();
+      auto l = fields[0].to!size_t;
+      auto str = fields[1];
+      auto tLeaflength = getTotLeafLength(str);
+      pos += l;
+      data ~= tuple(pos, tLeaflength);
+    }
+  }
+  
+  double getTLeafTot(size_t pos) {
+    auto index = getIndex(pos);
+    return data[index][1];
+  }
+  
+  private size_t getIndex(size_t pos) {
+    while(data[lastIndex][0] < pos)
+      lastIndex += 1;
+    while(lastIndex > 0 && data[lastIndex - 1][0] >= pos)
+      lastIndex -= 1;
+    return lastIndex;
+  }
+}
+
+double getTotLeafLength(in char[] str) {
+  static auto tTotRegex = regex(r"\d+:([\d+\.e-]+)", "g");
+
+  auto matches = match(str, tTotRegex);
+  auto times = matches.map!(m => m.captures[1].to!double());
+  auto sum = 2.0 * times.reduce!"a+b"();
+  return sum;
+}
+
+unittest {
+  auto tree = "(5:0.1,((2:8.1,1:8.1):0.1,((4:0.1,0:0.1):0.004,3:0.1):0.004):0.01);";
+  assert(approxEqual(getTotLeafLength(tree), 2.0 * 16.6, 0.0001, 0.0));
+  tree = "((((2:8.3,1:8.3):0.122683,(0:0.11,3:0.11):0.00415405):0.00462688,4:0.12):1.06837,5:1.19);";
+  assert(approxEqual(getTotLeafLength(tree), 2.0 * 18.13, 0.0001, 0.0));
+}
+
+double[] getLeafLengths(in char[] str) {
+  static auto tTotRegex = regex(r"(\d+):([\d+\.e-]+)", "g");
+
+  double[] ret;
+  auto matches = match(str, tTotRegex);
+  foreach(match; matches) {
+    auto i = match.captures[1].to!size_t();
+    auto t = 2.0 * match.captures[2].to!double();
+    if(i >= ret.length)
+      ret.length = i + 1;
+    ret[i] = t;
+  }
+  return ret;
+}
+
+unittest {
+  auto tree = "((((2:8.3,1:8.3):0.122683,(0:0.11,3:0.11):0.00415405):0.00462688,4:0.12):1.06837,5:1.19);";
+  auto leafLengths = getLeafLengths(tree);
+  assert(approxEqual(leafLengths[0], 0.22));
+  assert(approxEqual(leafLengths[1], 16.6));
+  assert(approxEqual(leafLengths[2], 16.6));
+  assert(approxEqual(leafLengths[3], 0.22));
+  assert(approxEqual(leafLengths[4], 0.24));
+  assert(approxEqual(leafLengths[5], 2.38));
+  assert(approxEqual(leafLengths.reduce!"a+b"(), getTotLeafLength(tree), 1e-8, 0.0));
 }
