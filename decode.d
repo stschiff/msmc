@@ -100,9 +100,8 @@ MSMC_hmm makeTtotHmm() {
   auto allele_order = canonicalAlleleOrder(nrHaplotypes);
   foreach(ref s; segsites) {
     if(s.obs[0] > 1) {
-      auto count_0 = count(allele_order[s.obs[0] - 1], '0');
-      auto count_1 = nrHaplotypes - count_0;
-      if(count_0 == 1 || count_1 == 1)
+      auto count_1 = count(allele_order[s.obs[0] - 1], '1');
+      if(count_1 == 1)
         s.obs = [2];
       else
         s.obs = [1];
@@ -123,7 +122,8 @@ MSMC_hmm makeStandardHmm() {
   auto propagationCore = new PropagationCoreFast(model, 1000);
   
   auto segsites = readSegSites(inputFileName, false, [], false);
-  estimateTotalBranchlengths(segsites, model);
+  if(nrHaplotypes > 2)
+    estimateTotalBranchlengths(segsites, model);
 
   stderr.writeln("generating Hidden Markov Model");
   return new MSMC_hmm(propagationCore, segsites);

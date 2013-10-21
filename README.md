@@ -1,6 +1,6 @@
 # The multiple sequentially Markovian coalescent (MSMC)
 
-This software implements MSMC, a method to infer population size and gene flow from multiple genome sequences. The accompanying manuscript that describes the method and its analysis to human genome sequences will soon be available as a preprint.
+This software implements MSMC, a method to infer population size and gene flow from multiple genome sequences. The accompanying manuscript (Schiffels and Durbin, 2013) that describes the method and its analysis to human genome sequences is currently under review.
 
 In short, msmc can infer
 
@@ -9,11 +9,15 @@ In short, msmc can infer
 
 as a function of time from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](http://github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
 
+MSMC infers the lowest part of the genealogical tree, up to the first coalescence, at every position along the genome. Therefore, the number of samples strongly affects the time of inference: if four phased haplotypes are analyzed (e.g. from two diploid samples), the typical time of first coalescence is 6 times more recent than with PSMC. With 8 haplotypes, the time is already 28 times more recent. Therefore, in contrast to many other methods, the rule "more samples => higher resolution" is not true here. Instead, it is recommended to run MSMC on multiple number of samples, beginning with 2, then increasing the sample size up to 8, if available. 
+
+We tested MSMC on up to 8 haplotypes. The computational complexity of the model so far limits its application to possibly a dozen of haplotypes.
+
 # Compilation
 
-To build and run MSMC, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system.
+To build and run MSMC, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system. (This dependence is likely to be dropped at some point soon).
 
-To build the program, simply run `make` in the directory in which your copy of the source code is located. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
+To build the program on a mac, simply run `make -f Makefile.mac` in the directory in which your copy of the source code is located. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
 
 A precompiled version will be made available for Mac OS X and for Linux. Please check later.
 
