@@ -71,34 +71,40 @@ void run() {
       if(lastHapsFilePos == pos) {
         auto al = hapsFields[3..5].joiner.array;
         auto gens = hapsFields[5 + 2 * hapsIndex .. 5 + 2 * (hapsIndex + 1)].map!(a => al[a.to!size_t()].to!char())().array;
-        auto prunedPhasings = pruneInconsistentPhasings(allPhasings, multihetsepIndex, gens);
-        enforce(prunedPhasings.length > 0, text(format("%s\t%s\t%s\t%s\t%s", pos, unphased, allPhasings, al, gens)));
+        auto prunedPhasings = pruneInconsistentPhasings(allPhasings, multihetsepIndex, gens.idup);
+        if(prunedPhasings.length == 0)
+          stderr.writefln("warning, non-mendelian segregation: %s: %s", pos, unphased);
         data[4] = prunedPhasings;
       }
     }
   }
+  auto dummy = new dchar[2 * nrIndividuals];
+  dummy[] = '?';
   foreach(data; multihetsepData) {
-    writefln("%s\t%s\t%s\t%s", data[0], data[1], data[2], data[4].joiner(",").array());
+    auto allele_str = data[4].joiner(",").array();
+    if(data[4].length == 0)
+      allele_str = dummy;
+    writefln("%s\t%s\t%s\t%s", data[0], data[1], data[2], allele_str);
   }
 }
 
 auto readMultihetsepFile(string filename) {
   stderr.writeln("reading multihetsep-file: ", filename);
-  Tuple!(string, size_t, size_t, char[][], char[][])[] ret;
+  Tuple!(string, size_t, size_t, string[], string[])[] ret;
   auto f = File(multihetsep_filename, "r");
   foreach(line; f.byLine) {
     auto fields = line.strip().split();
     auto chr = fields[0].idup;
     auto pos = fields[1].to!size_t();
     auto calledSites = fields[2].to!size_t();
-    auto unphased = fields[3 .. $];
+    auto unphased = fields[3 .. $].map!"a.idup"().array();
     auto allPhasings = getAllPhasings(unphased);
     ret ~= tuple(chr, pos, calledSites, unphased, allPhasings);
   }
   return ret;
 }
 
-char[][] getAllPhasings(in char[][] genotypes) {
+string[] getAllPhasings(in string[] genotypes) {
   char[][] ret;
   if(genotypes[0][0] == genotypes[0][1])
     ret = [genotypes[0].dup];
@@ -122,7 +128,7 @@ char[][] getAllPhasings(in char[][] genotypes) {
       }
     }
   }
-  return ret.uniq.array();
+  return ret.uniq.map!"a.idup"().array();
 }
 
 unittest {
@@ -133,11 +139,11 @@ unittest {
   assert(equal(getAllPhasings([['A', 'G'], ['A', 'G']]).joiner(","), "AGAG,AGGA,GAAG,GAGA"));
 }
 
-char[][] pruneInconsistentPhasings(in char[][] allPhasings, size_t ind, in char[] phasedGenotypes) {
-  char[][] ret;
+string[] pruneInconsistentPhasings(in string[] allPhasings, size_t ind, string phasedGenotypes) {
+  string[] ret;
   foreach(alleles; allPhasings) {
     if(alleles[ind * 2] == phasedGenotypes[0] && alleles[ind * 2 + 1] == phasedGenotypes[1])
-      ret ~= alleles.dup;
+      ret ~= alleles.idup;
   }
   return ret;
 }
