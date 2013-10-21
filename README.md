@@ -64,7 +64,10 @@ More command line options are printed when simply typing `msmc`.
 The program outputs three files:
 * Af file called something.log: This file contains the same logging information that is printed out while it runs.
 * A file called something.loop.txt. This file contains a table with parameter estimates after each iteration step. The columns of the table are: the recombination rate (fixed in the above example), the log-likelihood, and a comma-separated list of coalescence rates.
-* A file called something.final.txt. This file contains a table with the final parameter estimates. It contains multiple columns with a header line. Here are the first rows of an example file:
+* A file called something.final.txt. This file contains a table with the final parameter estimates.
+ 
+The final file contains multiple columns with a header line. Here are the first rows of an example:
+
 
     time_index	left_time_boundary	right_time_boundary	lambda_00
     0	-0	2.09028e-06	1086.3
@@ -92,7 +95,7 @@ The output file now contains several coalescence rate estimates. Here is an exam
     2	5.68236e-06	8.67766e-06	3152.31	736.499	2790.45
     3	8.67766e-06	1.1786e-05	2526.36	1075.56	2790.33
 
-Now the three columns titled lambda_?? denote that coalescence rates within and across the subpopulations. To get relative gene flow, you can compute the relative cross-coalescence rate: 2 * lambda01 / (lambda00 + lambda11).
+Now the three columns titled lambda_?? denote the coalescence rates within and across the subpopulations. To get relative gene flow, you can compute the relative cross-coalescence rate: 2 * lambda01 / (lambda00 + lambda11).
 
 # Scaling to real time and population sizes
 
