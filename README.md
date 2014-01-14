@@ -9,6 +9,15 @@ In short, msmc can infer
 
 as a function of time from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](http://github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
 
+# Changes:
+
+If you downloaded this program prior to October 21st, 2013, please note some important changes:
+
+* there are no subprograms anymore. The program `msmc` does the job.
+* The required step of inferring the local branchlength is now internalized, no extra step needed
+* You can now specify the exact individual haplotypes used for inference, flag `I`
+* Theta is automatically determined if you don't pass it via the command line.
+
 # Installation
 
 Precompiled versions for Mac and Linux (both 64 bit) can be downloaded via ftp from
@@ -19,7 +28,9 @@ To build MSMC yourself, the [GNU Scientific Library (GSL)](http://www.gnu.org/so
 
 To build the program, have a look at the two Makefiles. Adjust the path to the GSL and eventually run the `release` target. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
 
-MSMC takes as input several files, one for each chromosome, each with a list of segregating sites, including the number of homozygous called sites between. Here is an example bit of an input file for MSMC:
+# Input Files
+
+MSMC takes as input several files, one for each chromosome, each with a list of segregating sites, including a column to denote how many sites have been called since the last segregating site. Here is an example bit of an input file for MSMC:
 
     1   58432	63	TCCC
     1   58448	16	GAAA
@@ -29,79 +40,66 @@ MSMC takes as input several files, one for each chromosome, each with a list of 
     1	69569	17	TCCC
     1	801848	9730	CCCA
     1	809876	1430	AAAG
-    1	825207	1971	TCCT,CTTC
+    1	825207	1971	CCCT,CCTC
     1	833223	923	TCCC
 
 The four (tab-separated) columns are:
 
 1. the chromosome (can be any string)
 2. the position in the chromosome
-3. the number of called homozygous sites since the last segregating site, including the given location
-4. the ordered and phased pattern of alleles at multiple haplotypes. Multiple observations can be given, separated by a comma to indicate ambiguous haplotype phasing. Unknown alleles are indicated by "?", e.g. for missing data.
+3. the number of called sites (homozygous, except the site itself which can be hom. or het.) since the last segregating site. This number *includes* the given location. This means that this number must always be greater than zero!
+4. the ordered and phased alleles of the multiple haplotypes. If phasing is unknown, multiple phasings can be given, separated by a comma to indicate the different possibilities. This is the case in the line before the last in the example above. Unknown alleles can be indicated by "?", but they can also simply be left out and expressed through a reduced number of called sites in the line of the next variant.
 
-Input files can be generated from BAM files, VCF files and other sources relatively straight forward. Useful scripts can be found in the `tools` directory (in order to run them, the D-compiler must be installed and rdmd somewhere in the path). 
+Input files can be generated from BAM files, VCF files and other sources relatively straight forward. Useful scripts can be found in the `tools` directory (in order to run them, use the D-compiler via `dmd xyz.d` in the `tools` directory. There are also some awk scripts
 
-## Estimating the total branchlength
+# Estimation of historical effective population sizes
 
-For the following we need an estimate of the diversity from the input files. A standard estimator for θ(=4Nµ), along with several other statistics can be obtained with the command
+To run the program, the minimal command line looks like this:
 
-    msmc stats <file1> <file2> ...
+    msmc --fixedRecombination -o my_msmc_output file1.txt file2.txt file3.txt [...]
 
-If more than two haplotypes are analyzed, local estimates for the scaled total branchlength of local genealogies along the sequences must be obtained with the following command
+If no mutation rate is given, as in the line above, Watterson's estimator is used to determine theta. If you find that confusing, don't worry about it, it simply sets the exact placement of the time-intervals. The flag "--fixedRecombination" is recommended, but population size estimates are pretty robust whether or not this flag is set.
+More command line options are printed when simply typing `msmc`.
 
-    msmc branchlength -m <mutation_rate> <input_file> > out_file
+The program outputs three files:
+* Af file called something.log: This file contains the same logging information that is printed out while it runs.
+* A file called something.loop.txt. This file contains a table with parameter estimates after each iteration step. The columns of the table are: the recombination rate (fixed in the above example), the log-likelihood, and a comma-separated list of coalescence rates.
+* A file called something.final.txt. This file contains a table with the final parameter estimates.
+ 
+The final file contains multiple columns with a header line. Here are the first rows of an example:
 
-which must be run for every input file. The scaled mutation rate, 2Nµ, should be set to half the estimate obtained in the previous step for θ. The output files look like this:
 
-    1   58448	16	GAAA	0.0766465
-    1	68306	15	CTTT	8.58025
-    1	68316	10	TCCC	8.58025
-    1	69552	8	GCCC	8.58025
-    1	69569	17	TCCC	8.58025
-    1	801848	9730	CCCA	0.573957
-    1	809876	1430	AAAG	0.84195
-    1	825207	1971	TCCT,CTTC	2.19634
-    1	833223	923	TCCC	5.78576
-    1	833824	100	CTTT	5.78576
-
-where the local estimate of the total branchlength is added to every segregating site as fifth column.
-
-# Estimation of Historical Population sizes
-
-We can now run the main program, `msmc inference`, on our annotated datafile (or in case of 2 haplotypes without the branchlength annotation). To run the program on a machine with 8 processor cores, the minimal command line looks like this:
-
-    msmc inference -m <mutation_rate> -t 8 --fixedRecombination -o <out_file> <input_file1> <input_file2> ...
-
-It is very important that the mutation rate is the _same_ as was used in the previous step for `msmc branchlength`!
-
-The output from `msmc inference` is in JSON format, which is a simple key-value format that is human readable. A helper program to print in a simple tabular format is available as `msmc print` and can be called like this:
-
-    msmc print -s -y <out_file>
-
-The first lines of the tabular output look like this:
-
-    0	1.92217e+06
-    3623.48	138619
-    7341.09	22498.9
-    11157.9	15691.5
-    15079.2	13743.6
-    19111	11315.2
-    23259.7	9071.03
-    27532.3	7351.55
-    31936.3	6154.67
-    36480.1	5354.62
-
-where the first column contains the left boundary of the time intervals, and the second column the population size estimates.
+    time_index	left_time_boundary	right_time_boundary	lambda_00
+    0	-0	2.09028e-06	1086.3
+    1	2.09028e-06	4.23486e-06	3373.81
+    2	4.23486e-06	6.43663e-06	3726.96
+    3	6.43663e-06	8.69874e-06	3009.26
+    
+The first column simply gives the zero-based index of the time interval. The second and third columns give the scaled begin and end time of the interval. The fourth column gives the scaled inverse population size (scaled coalescence rate) of the interval. See below on how to convert scaled times and rates to real numbers.
 
 # Estimation of historical gene flow
 
-In this case, the data file should consist of the alleles from two subpopulations, e.g. 4 haplotypes with two haplotypes from each subpopulation. The command for running the inference is then
+If the dataset contains samples from different subpopulations of the same species (i.e. not too diverged), MSMC can estimate gene flow as a function of time. Assuming you have four haplotypes, two of which are from population 0, and two from population 1, the command for running the inference is
 
-    msmc inference -m <mutation_rate> -t 8 --fixedRecombination -P 0,0,1,1 -o <out_file> <input_file1> <input_file2> ...
+    msmc --fixedRecombination --skipAmbiguous -P 0,0,1,1 -o my_msmc_output file1.txt file2.txt file3.txt [...]
 
-where the flag `-P 0,0,1,1` specifies that the four alleles are sampled from two subpopulations `0` and `1`.
+Here, the flag `-P 0,0,1,1` specifies that the four alleles are sampled from two subpopulations `0` and `1`. These need to be given as numbers starting from 0. For eight haplotypes, 4 sampled from each subpopulation, this would read `-P 0,0,0,0,1,1,1,1`. MSMC has been tested only on an equal number of haplotypes in each of the two subpopulation so far, feel free to try unequal numbers. In principle, MSMC allows more than two subpopulations as well, but that hasn't been tested yet.
 
-To output the gene flow estimates directly, use
+The flag `--skipAmbiguous` is recommended for gene flow estimation. It means that sites with ambiguous phasing, as described above, are removed from the analysis.
 
-    msmc print -s -y -w crossLambda <out_file>
+The output file now contains several coalescence rate estimates. Here is an example bit:
 
+    time_index	left_time_boundary	right_time_boundary	lambda_00	lambda_01	lambda_11
+    0	-0	2.79218e-06	2605.47	71.9887	4206.61
+    1	2.79218e-06	5.68236e-06	6451.92	1256.07	3897.26
+    2	5.68236e-06	8.67766e-06	3152.31	736.499	2790.45
+    3	8.67766e-06	1.1786e-05	2526.36	1075.56	2790.33
+
+Now the three columns titled lambda_?? denote the coalescence rates within and across the subpopulations. To get relative gene flow, you can compute the relative cross-coalescence rate: 2 * lambda01 / (lambda00 + lambda11).
+
+# Scaling to real time and population sizes
+
+MSMC outputs times and rates scaled by the mutation rate per basepair per generation.
+First, scaled times are given in units of the per-generation mutation rate. This means that in order to convert scaled times to generations, divide them by the mutation rate. In humans, we used mu=1.25e-8 per basepair per generation.To convert generations into years, multiply by the generation time, for which we used 30 years.
+
+To get population sizes out of coalescence rates, first take the inverse of the coalescence rate, scaledPopSize = 1 / lambda00. Then divide this scaled population size by 2*mu (yes, this factor 2 is different from the time scaling, sorry), which for humans is 2.5e-8.
