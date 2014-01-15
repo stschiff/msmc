@@ -54,7 +54,7 @@ The four (tab-separated) columns are:
 3. the number of called sites (homozygous, except the site itself which can be hom. or het.) since the last segregating site. This number *includes* the given location. This means that this number must always be greater than zero!
 4. the ordered and phased alleles of the multiple haplotypes. If phasing is unknown, multiple phasings can be given, separated by a comma to indicate the different possibilities. This is the case in the line before the last in the example above. Unknown alleles can be indicated by "?", but they can also simply be left out and expressed through a reduced number of called sites in the line of the next variant.
 
-## Generate input files
+# Generate input files
 ## Consensus calling
 ### ...from BAM
 I assume that you have one bam file for each sample you want to study. You will need a reference file, and I recommend you use the masked reference file that can be found on the same FTP site above as the executables. Note that this file is for hg37, not hg38. This mask replaces every basepair with unambiguous mapping with an `N`. The masking method is described in Heng Li's [SNPable](http://lh3lh3.users.sourceforge.net/snpable.shtml). You can now call the consensus sequence for each individual via `tools/conensus_caller.sh`, for example:
