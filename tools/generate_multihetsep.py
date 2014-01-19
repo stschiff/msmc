@@ -25,8 +25,8 @@ class MaskIterator:
     try:
       line = self.file.next()
       fields = string.split(string.strip(line))
-      self.start = int(fields[0])
-      self.end = int(fields[1])
+      self.start = int(fields[1]) + 1
+      self.end = int(fields[2])
     except StopIteration:
       self.eof = True
   
