@@ -4,29 +4,34 @@ import sys
 import gzip
 import string
 import copy
+import argparse
 
-if len(sys.argv) < 2:
-  sys.stderr.write("""Usage: ./generate_multihetsep.py <vcf_1> <mask_1> <vcf_2> <mask_2> ...
-where both vcf files and mask files must be gzip-compressed
-""")
+parser = argparse.ArgumentParser()
+parser.add_argument("files", nargs="+", help="Input files, must be alternating vcfs and masks: <vcf_1> <mask_1> [<vcf_2> <mask_2> ...]")
+parser.add_argument("--legacy", action="store_true", default=False)
+args = parser.parse_args()
 
-filenames = sys.argv[1:]
-nrIndidividuals = len(filenames) / 2
+nrIndidividuals = len(args.files) / 2
 nrHaplotypes = 2 * nrIndidividuals
 
 class MaskIterator:
-  def __init__(self, filename):
+  def __init__(self, filename, legacy):
     self.file = gzip.open(filename, "r")
     self.eof = False
     self.lastPos = 1
+    self.legacy = legacy
     self.readLine()
 
   def readLine(self):
     try:
       line = self.file.next()
       fields = string.split(string.strip(line))
-      self.start = int(fields[1]) + 1
-      self.end = int(fields[2])
+      if self.legacy:
+        self.start = int(fields[0])
+        self.end = int(fields[1])
+      else:
+        self.start = int(fields[1]) + 1
+        self.end = int(fields[2])
     except StopIteration:
       self.eof = True
   
@@ -41,8 +46,8 @@ class MaskIterator:
       return False
 
 class MergedMask:
-  def __init__(self, mask_files):
-    self.maskIterators = [MaskIterator(f) for f in mask_files]
+  def __init__(self, mask_files, legacy):
+    self.maskIterators = [MaskIterator(f, legacy) for f in mask_files]
 
   def getVal(self, pos):
     return all((m.getVal(pos) for m in self.maskIterators))
@@ -137,17 +142,10 @@ class JoinedVcfIterator:
       return minIndices
     
     
-# DIR="/lustre/scratch113/projects/msmc/Ethiopians/consensus_calls"
-# joined = JoinedVcfIterator([DIR + "/NA12878/NA12878_chr1.phased.vcf.gz", DIR + "/NA19240/NA19240_chr1.phased.vcf.gz", DIR + "/egpg5305762/egpg5305762_chr1.phased.vcf.gz", DIR + "/egpg5305814/egpg5305814_chr1.phased.vcf.gz"])
-# 
-# for line in joined:
-#   print line
-
-
 sys.stderr.write("generating msmc input file with {} haplotypes\n".format(nrHaplotypes))
 
-joinedVcfIterator = JoinedVcfIterator([filenames[2 * i] for i in range(nrIndidividuals)])
-mergedMask = MergedMask([filenames[2 * i + 1] for i in range(nrIndidividuals)])
+joinedVcfIterator = JoinedVcfIterator([args.files[2 * i] for i in range(nrIndidividuals)])
+mergedMask = MergedMask([args.files[2 * i + 1] for i in range(nrIndidividuals)], args.legacy)
 
 pos = 0
 nr_called = 0
