@@ -6,14 +6,6 @@ import string
 import copy
 import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument("files", nargs="+", help="Input files, must be alternating vcfs and masks: <vcf_1> <mask_1> [<vcf_2> <mask_2> ...]")
-parser.add_argument("--legacy", action="store_true", default=False)
-args = parser.parse_args()
-
-nrIndidividuals = len(args.files) / 2
-nrHaplotypes = 2 * nrIndidividuals
-
 class MaskIterator:
   def __init__(self, filename, legacy):
     self.file = gzip.open(filename, "r")
@@ -141,11 +133,25 @@ class JoinedVcfIterator:
           minIndices = [a[0]]
       return minIndices
     
-    
+
+parser = argparse.ArgumentParser()
+parser.add_argument("files", nargs="+", help="Input files, must be alternating vcfs and masks: <vcf_1> <mask_1> [<vcf_2> <mask_2> ...]")
+parser.add_argument("--legacy", action="store_true", default=False, help="uses the old format of the mask files (not bed)")
+parser.add_argument("--mask", help="apply an additional mask file, e.g. from mappability")
+args = parser.parse_args()
+
+nrIndidividuals = len(args.files) / 2
+nrHaplotypes = 2 * nrIndidividuals
+
 sys.stderr.write("generating msmc input file with {} haplotypes\n".format(nrHaplotypes))
 
 joinedVcfIterator = JoinedVcfIterator([args.files[2 * i] for i in range(nrIndidividuals)])
-mergedMask = MergedMask([args.files[2 * i + 1] for i in range(nrIndidividuals)], args.legacy)
+maskFiles = [args.files[2 * i + 1] for i in range(nrIndidividuals)]
+if args.mask:
+  sys.stderr.write("adding additional mask: {}\n".format(args.mask))
+  maskFiles.append(args.mask)
+
+mergedMask = MergedMask(maskFiles, args.legacy)
 
 pos = 0
 nr_called = 0
