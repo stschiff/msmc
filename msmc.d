@@ -206,6 +206,7 @@ void parseCommandLine(string[] args) {
 }
 
 void printGlobalParams() {
+  logInfo(format("input files:         %s\n", inputFileNames));
   logInfo(format("maxIterations:       %s\n", maxIterations));
   logInfo(format("mutationRate:        %s\n", mutationRate));
   logInfo(format("recombinationRate:   %s\n", recombinationRate));
@@ -296,14 +297,9 @@ SegSite_t[][] readDataFromFiles(string[] filenames, bool directedEmissions, size
 
 void printMatrix(string filename, double[] eVec, double[][] eMat) {
   auto f = File(filename, "w");
+  f.writeln(eVec.map!"text(a)"().join("\t"));
   foreach(au; 0 .. eVec.length) {
-    foreach(bv; 0 .. eVec.length) {
-      auto val = eMat[au][bv];
-      if(au == bv)
-        val += eVec[au];
-      f.writef("%s\t", val);
-    }
-    f.write("\n");
+    f.writeln(eMat[au].map!"text(a)"().join("\t"));
   }
 }
 
