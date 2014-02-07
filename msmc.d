@@ -186,16 +186,12 @@ void parseCommandLine(string[] args) {
     nrTtotSegments = nrTimeSegments;
   auto nrSubpops = MarginalTripleIndex.computeNrSubpops(subpopLabels);
   auto nrMarginals = nrTimeSegments * nrSubpops * (nrSubpops + 1) / 2;
-  if(lambdaVec.length == 0) {
-    lambdaVec = new double[nrMarginals];
-    lambdaVec[] = 1.0;
-  }
-  else {
+  if(lambdaVec.length > 0) {
     // this is necessary because we read in a scaled lambdaVec.
     lambdaVec[] *= mutationRate;
+    enforce(lambdaVec.length == nrMarginals, "initialLambdaVec must have correct length");
   }
   enforce(treeFileNames.length == 0 || treeFileNames.length == inputFileNames.length);
-  enforce(lambdaVec.length == nrMarginals, "initialLambdaVec must have correct length");
   
   logFileName = outFilePrefix ~ ".log";
   loopFileName = outFilePrefix ~ ".loop.txt";
@@ -243,7 +239,13 @@ void inferDefaultSubpopLabels(size_t nrHaplotypes) {
 
 
 void run() {
-  auto params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, directedEmissions);
+  MSMCmodel params;
+  if(lambdaVec.length > 0)
+    params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, 
+                           directedEmissions);
+  else
+    params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, nrTtotSegments,
+                                         directedEmissions);
   
   auto nrFiles = inputData.length;
   if(params.nrHaplotypes > 2) {

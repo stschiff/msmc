@@ -62,8 +62,14 @@ class MSMCmodel {
   
   static MSMCmodel withTrivialLambda(double mutationRate, double recombinationRate, size_t[] subpopLabels, size_t nrTimeIntervals, size_t nrTtotIntervals, bool directedEmissions) {
     auto marginalIndex = new MarginalTripleIndex(nrTimeIntervals, subpopLabels);
-    auto lambdaVec = new double[marginalIndex.nrMarginals];
-    lambdaVec[] = 1.0;
+    double[] lambdaVec;
+    foreach(au; 0 .. marginalIndex.nrMarginals) {
+      auto index = marginalIndex.getIndexFromMarginalIndex(au);
+      auto triple = marginalIndex.getTripleFromIndex(index);
+      auto p1 = subpopLabels[triple.ind1];
+      auto p2 = subpopLabels[triple.ind2];
+      lambdaVec ~= p1 == p2 ? 1.0 : 0.5;
+    }
     return new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeIntervals, nrTtotIntervals, directedEmissions);
   }
   
