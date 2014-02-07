@@ -403,7 +403,7 @@ class PropagationCoreFast : PropagationCore {
       auto au = msmc.marginalIndex.getMarginalIndexFromIndex(aij);
       eMat[au][au] -= f.vec[aij] * transitionMatrixQ2[au][au] * fullE(to_segsite, aij) * b.vec[aij];
       if(eMat[au][au] < 0.0) { // this just corrects tiny numerical errors from the addition-subtraction here.
-        assert(-eMat[au][au] < 1.0e-20);
+        assert(-eMat[au][au] < 1.0e-10, text(eMat[au][au]));
         eMat[au][au] = 0.0;
       }
       eVec[au] += f.vec[aij] * (transitionMatrixQ1[au] + transitionMatrixQ2[au][au]) * fullE(to_segsite, aij) * 

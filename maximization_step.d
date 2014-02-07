@@ -80,7 +80,7 @@ class MinFunc {
   body {
     auto x = getXfromLambdaVec(initialParams.lambdaVec);
     if(!fixedRecombination)
-      x ~= getXfromRecombinationRate(initialParams.recombinationRate);
+      x ~= log(initialParams.recombinationRate);
     return x;
   }
   
@@ -121,10 +121,6 @@ class MinFunc {
       count += nrIntervalsInSegment;
     }
     return ret;
-  }
-  
-  double getXfromRecombinationRate(double rho) {
-    return log(rho);
   }
   
   MSMCmodel makeParamsFromVec(in double[] x) {
