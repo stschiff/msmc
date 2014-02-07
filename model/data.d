@@ -294,7 +294,7 @@ unittest {
   assert(segsites[3].pos == 1000005 && segsites[3].obs == [0]);
   assert(segsites[4].pos == 1000007 && segsites[4].obs == [1]);
   assert(segsites[5].pos == 1000008 && segsites[5].obs == [0]);
-  assert(segsites[6].pos == 1000012 && segsites[6].obs == [1, 1]);
+  assert(segsites[6].pos == 1000012 && segsites[6].obs == [1]);
   
 }
 

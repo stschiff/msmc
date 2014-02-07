@@ -17,8 +17,6 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#!/usr/bin/env rdmd
-
 import std.stdio;
 import std.algorithm;
 import std.string;
@@ -26,42 +24,27 @@ import std.array;
 import model.msmc_model;
 import maximization_step;
 
-void main() {
-  auto mu = 0.0003578;
-  auto rho = 0.0001;
-  auto timeSegments = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2];
+void main(string[] args) {
+  auto mu = 0.000336401;
+  auto rho = 8.41002e-05;
+  auto timeSegments = [1UL, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
   auto T = timeSegments.reduce!"a+b"();
-  auto subpopLabels = [0UL, 0, 0, 0, 0, 0];
+  auto subpopLabels = [0UL, 0, 1, 1];
   
-  auto msmc = MSMCmodel.withTrivialLambda(mu, rho, subpopLabels, T, 20);
+  auto msmc = MSMCmodel.withTrivialLambda(mu, rho, subpopLabels, T, 30, false);
 
-  string filename = "/Users/ss27/Data/MSMC_simulations_new/M6_bottleneck_fine/simState_transitions.txt";
+  string filename = args[1];
   
   auto f = File(filename, "r");
+  auto line = f.readln();
+  auto eVec = line.strip.split.map!"to!double(a)"().array();
+  double[][] eMat;
+  foreach(l; f.byLine)
+    eMat ~= l.strip.split.map!"to!double(a)"().array();
   
-  auto eVec = new double[T];
-  auto eMat = new double[][](T, T);
-  eVec[] = 0.0;
-  foreach(ref r; eMat)
-    r[] = 0.0;
+  // stderr.writeln(eVec);
+  // stderr.writeln(eMat);
   
-  double[][] mat;
-  foreach(line; f.byLine) {
-    mat ~= line.strip.split.map!"to!double(a)"().array();
-  }
-  
-  foreach(aij; 0 .. msmc.nrStates) {
-    auto au = msmc.marginalIndex.getMarginalIndexFromIndex(aij);
-
-    foreach(bkl; 0 .. msmc.nrStates) {
-      auto bv = msmc.marginalIndex.getMarginalIndexFromIndex(bkl);
-      if(aij != bkl) {
-        eMat[au][bv] += mat[aij][bkl];
-      }
-      else
-        eVec[au] += mat[aij][bkl];
-    }
-  }
   auto newParams = getMaximization(eVec, eMat, msmc, timeSegments, false, true);
   
   foreach(i; 0 .. T) {

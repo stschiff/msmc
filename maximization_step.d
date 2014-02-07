@@ -36,15 +36,7 @@ MSMCmodel getMaximization(double[] eVec, double[][] eMat, MSMCmodel params, in s
   auto powell = new Powell!MinFunc(minFunc);
   auto x = minFunc.initialValues();
   auto startVal = minFunc(x);
-  powell.init(x);  
-  double[] xNew;
-  while(powell.iter < 200 && !powell.finished()) {
-    logInfo(format("\r  * [%s/200(max)] Maximization Step", powell.iter));
-    xNew = powell.step();
-    if(powell.iter == 200) {
-      logInfo("WARNING: Powell's maximization method exceeding 200 iterations. Taking best value as maximum.");
-    }
-  }
+  auto xNew = powell.minimize(x);
   auto endVal = minFunc(xNew);
   logInfo(format(", Q-function before: %s, after:%s\n", startVal, endVal));
   return minFunc.makeParamsFromVec(xNew);
@@ -52,7 +44,6 @@ MSMCmodel getMaximization(double[] eVec, double[][] eMat, MSMCmodel params, in s
 
 class MinFunc {
   
-  static immutable double penalty = 1.0e20;
   MSMCmodel initialParams;
   const size_t[] timeSegmentPattern;
   size_t nrSubpopPairs, nrParams;
@@ -78,52 +69,27 @@ class MinFunc {
   }
   
   double opCall(in double[] x) {
-    if(invalid(x))
-      return penalty;
     MSMCmodel newParams = makeParamsFromVec(x);
     return -logLikelihood(newParams);
   };
-  
-  bool invalid(in double[] x) {
-    auto lambdaVec = fixedPopSize ? getLambdaVecFromXfixedPop(x) : getLambdaVecFromX(x);
-    auto recombinationRate = fixedRecombination ? initialParams.recombinationRate : getRecombinationRateFromX(x);
-    auto marginalIndex = new MarginalTripleIndex(initialParams.nrTimeIntervals, initialParams.subpopLabels);
-    
-    if(recombinationRate < 0.0 || isNaN(recombinationRate))
-      return true;
-    
-    foreach(au, l; lambdaVec) {
-      if(l < 0.0 || isNaN(l))
-        return true;
-      auto aij = marginalIndex.getIndexFromMarginalIndex(au);
-      auto triple = marginalIndex.getTripleFromIndex(aij);
-      auto subpop1 = marginalIndex.subpopLabels[triple.ind1];
-      auto subpop2 = marginalIndex.subpopLabels[triple.ind2];
-      if(subpop1 != subpop2) {
-        auto marginalIndex1 = marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop1][subpop1];
-        auto marginalIndex2 = marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][subpop2][subpop2];
-        if(l > 0.5 * (lambdaVec[marginalIndex1] + lambdaVec[marginalIndex2]))
-          return true;
-      }
-    }
-    return false;
-  }
   
   double[] initialValues()
   out(x) {
     assert(x.length == nrParams);
   }
   body {
-    auto x = fixedPopSize ? getXfromLambdaVecFixedPop(initialParams.lambdaVec) : 
-             getXfromLambdaVec(initialParams.lambdaVec);
+    auto x = getXfromLambdaVec(initialParams.lambdaVec);
     if(!fixedRecombination)
-      x ~= initialParams.recombinationRate;
+      x ~= getXfromRecombinationRate(initialParams.recombinationRate);
     return x;
   }
   
-  double[] getXfromLambdaVecFixedPop(double[] lambdaVec)
+  double[] getXfromLambdaVec(double[] lambdaVec)
   out(x) {
-    assert(x.length == timeSegmentPattern.length * (nrSubpopPairs - initialParams.nrSubpopulations));
+    if(fixedPopSize)
+      assert(x.length == timeSegmentPattern.length * (nrSubpopPairs - initialParams.nrSubpopulations));
+    else
+      assert(x.length == timeSegmentPattern.length * nrSubpopPairs);
   }
   body {
     double[] ret;
@@ -135,8 +101,21 @@ class MinFunc {
         auto triple = initialParams.marginalIndex.getTripleFromIndex(tripleIndex);
         auto p1 = initialParams.subpopLabels[triple.ind1];
         auto p2 = initialParams.subpopLabels[triple.ind2];
-        if(p1 != p2) {
-          ret ~= lambdaVec[lIndex];
+        if(p1 == p2) {
+          if(!fixedPopSize) {
+            ret ~= log(lambdaVec[lIndex]);
+          }
+        }
+        else {
+          auto marginalIndex1 = initialParams.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][p1][p1];
+          auto marginalIndex2 = initialParams.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][p2][p2];
+          auto lambda1 = lambdaVec[marginalIndex1];
+          auto lambda2 = lambdaVec[marginalIndex2];
+          auto lambda12 = lambdaVec[lIndex];
+          if(lambda12 >= 0.5 * (lambda1 + lambda2))
+            lambda12 = 0.4999999999 * (lambda1 + lambda2);
+          auto ratio = 2.0 * lambda12 / (lambda1 + lambda2);
+          ret ~= tan(ratio * PI - PI_2);
         }
       }
       count += nrIntervalsInSegment;
@@ -144,21 +123,9 @@ class MinFunc {
     return ret;
   }
   
-  double[] getXfromLambdaVec(double[] lambdaVec)
-  out(x) {
-    assert(x.length == timeSegmentPattern.length * nrSubpopPairs);
+  double getXfromRecombinationRate(double rho) {
+    return log(rho);
   }
-  body {
-    double[] ret;
-    size_t count = 0;
-    foreach(nrIntervalsInSegment; timeSegmentPattern) {
-      foreach(i; 0 .. nrSubpopPairs)
-        ret ~= lambdaVec[count * nrSubpopPairs + i];
-      count += nrIntervalsInSegment;
-    }
-    return ret;
-  }
-  
   
   MSMCmodel makeParamsFromVec(in double[] x) {
     auto lambdaVec = fixedPopSize ? getLambdaVecFromXfixedPop(x) : getLambdaVecFromX(x);
@@ -183,8 +150,16 @@ class MinFunc {
           auto triple = initialParams.marginalIndex.getTripleFromIndex(tripleIndex);
           auto p1 = initialParams.subpopLabels[triple.ind1];
           auto p2 = initialParams.subpopLabels[triple.ind2];
+
           if(p1 != p2) {
-            lambdaVec[lIndex] = x[segmentIndex * valuesPerTime + xIndex];
+            auto marginalIndex1 = 
+                initialParams.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][p1][p1];
+            auto marginalIndex2 = 
+                initialParams.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][p2][p2];
+            auto lambda1 = lambdaVec[marginalIndex1];
+            auto lambda2 = lambdaVec[marginalIndex2];
+            auto ratio = (atan(x[segmentIndex * valuesPerTime + xIndex]) + PI_2) / PI;
+            lambdaVec[lIndex] = ratio * 0.5 * (lambda1 + lambda2);
             xIndex += 1;
           }
         }
@@ -206,21 +181,40 @@ class MinFunc {
         foreach(subpopPairIndex; 0 .. nrSubpopPairs) {
           auto lIndex = timeIndex * nrSubpopPairs + subpopPairIndex;
           auto xIndex = segmentIndex * nrSubpopPairs + subpopPairIndex;
-          lambdaVec[lIndex] = x[xIndex];
+          lambdaVec[lIndex] = exp(x[xIndex]);
+        }
+        foreach(subpopPairIndex; 0 .. nrSubpopPairs) {
+          auto lIndex = timeIndex * nrSubpopPairs + subpopPairIndex;
+          auto tripleIndex = initialParams.marginalIndex.getIndexFromMarginalIndex(lIndex);
+          auto triple = initialParams.marginalIndex.getTripleFromIndex(tripleIndex);
+          auto p1 = initialParams.subpopLabels[triple.ind1];
+          auto p2 = initialParams.subpopLabels[triple.ind2];
+
+          if(p1 != p2) {
+            auto xIndex = segmentIndex * nrSubpopPairs + subpopPairIndex;
+            auto marginalIndex1 = 
+                initialParams.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][p1][p1];
+            auto marginalIndex2 = 
+                initialParams.marginalIndex.subpopulationTripleToMarginalIndexMap[triple.time][p2][p2];
+            auto lambda1 = lambdaVec[marginalIndex1];
+            auto lambda2 = lambdaVec[marginalIndex2];
+            auto ratio = (atan(x[xIndex]) + PI_2) / PI;
+            lambdaVec[lIndex] = ratio * 0.5 * (lambda1 + lambda2);
+          }
         }
         timeIndex += 1;
       }
     }
     return lambdaVec;
   }
+  
 
   double getRecombinationRateFromX(in double[] x)
   in {
     assert(!fixedRecombination);
   }
   body {
-    auto recombinationRate = x[$ - 1];
-    return recombinationRate;
+    return exp(x[$ - 1]);
   }
 
   double logLikelihood(MSMCmodel params) {
@@ -240,32 +234,38 @@ class MinFunc {
 
 unittest {
   writeln("test minfunc.getLambdaFromX");
+  import std.conv;
   
-  auto lambdaVec = new double[12];
-  foreach(i; 0 .. 12)
-    lambdaVec[i] = cast(double)i + 1.0;
+  auto lambdaVec = [1, 1.5, 3, 1, 1.5, 3, 4, 4.5, 6, 4, 4.5, 6];
   auto params = new MSMCmodel(0.01, 0.001, [0U, 0, 1, 1], lambdaVec, 4, 4, false);
   auto expectationResultVec = new double[params.nrMarginals];
   auto expectationResultMat = new double[][](params.nrMarginals, params.nrMarginals);
   auto timeSegmentPattern = [2UL, 2];
   
   auto minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, false, false);
-  auto x = [1, 1.5, 3, 4, 4.5, 6, 1.2];
-  assert(minFunc.getLambdaVecFromX(x) == [1, 1.5, 3, 1, 1.5, 3, 4, 4.5, 6, 4, 4.5, 6]);
-  assert(minFunc.getRecombinationRateFromX(x) == 1.2);
-  assert(!minFunc.invalid(x));
-  x[1] = 2.5;
-  assert(minFunc.invalid(x));
-  
+  auto rho = 0.001;
+  auto x = minFunc.getXfromLambdaVec(lambdaVec);
+  x ~= minFunc.getXfromRecombinationRate(rho);
+  auto lambdaFromX = minFunc.getLambdaVecFromX(x);
+  auto rhoFromX = minFunc.getRecombinationRateFromX(x);
+  foreach(i; 0 .. lambdaVec.length)
+    assert(approxEqual(lambdaFromX[i], lambdaVec[i], 1.0e-8, 0.0), text(lambdaFromX[i], " ", lambdaVec[i]));
+  assert(approxEqual(rhoFromX, rho, 1.0e-8, 0.0));
 
   minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, true, false);
-  x = [23.4, 35.6, 1.4];
-  assert(minFunc.getLambdaVecFromXfixedPop(x) == [1, 23.4, 3, 4, 23.4, 6.0, 7.0, 35.6, 9.0, 10.0, 35.6, 12]);
-  assert(minFunc.getRecombinationRateFromX(x) == 1.4);
+  x = minFunc.getXfromLambdaVec(lambdaVec);
+  x ~= minFunc.getXfromRecombinationRate(rho);
+  lambdaFromX = minFunc.getLambdaVecFromXfixedPop(x);
+  rhoFromX = minFunc.getRecombinationRateFromX(x);
+  foreach(i; 0 .. lambdaVec.length)
+    assert(approxEqual(lambdaFromX[i], lambdaVec[i], 1.0e-8, 0.0), text(lambdaFromX[i], " ", lambdaVec[i]));
+  assert(approxEqual(rhoFromX, rho, 1.0e-8, 0.0));
 
   minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, false, true);
-  x = [1, 2, 3, 4, 5, 6];
-  assert(minFunc.getLambdaVecFromX(x) == [1, 2, 3, 1, 2, 3, 4, 5, 6, 4, 5, 6]);
+  x = minFunc.getXfromLambdaVec(lambdaVec);
+  lambdaFromX = minFunc.getLambdaVecFromX(x);
+  foreach(i; 0 .. lambdaVec.length)
+    assert(approxEqual(lambdaFromX[i], lambdaVec[i], 1.0e-8, 0.0), text(lambdaFromX[i], " ", lambdaVec[i]));
 }
   
 // unittest {
