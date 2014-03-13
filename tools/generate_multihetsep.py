@@ -7,18 +7,20 @@ import copy
 import argparse
 
 class MaskIterator:
-  def __init__(self, filename, legacy):
-    self.file = gzip.open(filename, "r")
+  def __init__(self, filename):
+    if filename[-3:] == ".gz":
+      self.file = gzip.open(filename, "r")
+    else:
+      self.file = open(filename, "r")
     self.eof = False
     self.lastPos = 1
-    self.legacy = legacy
     self.readLine()
 
   def readLine(self):
     try:
       line = self.file.next()
       fields = string.split(string.strip(line))
-      if self.legacy:
+      if len(fields) == 2:
         self.start = int(fields[0])
         self.end = int(fields[1])
       else:
@@ -38,8 +40,8 @@ class MaskIterator:
       return False
 
 class MergedMask:
-  def __init__(self, mask_files, legacy):
-    self.maskIterators = [MaskIterator(f, legacy) for f in mask_files]
+  def __init__(self, mask_files):
+    self.maskIterators = [MaskIterator(f) for f in mask_files]
 
   def getVal(self, pos):
     return all((m.getVal(pos) for m in self.maskIterators))
@@ -136,7 +138,6 @@ class JoinedVcfIterator:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("files", nargs="+", help="Input files, must be alternating vcfs and masks: <vcf_1> <mask_1> [<vcf_2> <mask_2> ...]")
-parser.add_argument("--legacy", action="store_true", default=False, help="uses the old format of the mask files (not bed)")
 parser.add_argument("--mask", help="apply an additional mask file, e.g. from mappability")
 args = parser.parse_args()
 
@@ -151,7 +152,7 @@ if args.mask:
   sys.stderr.write("adding additional mask: {}\n".format(args.mask))
   maskFiles.append(args.mask)
 
-mergedMask = MergedMask(maskFiles, args.legacy)
+mergedMask = MergedMask(maskFiles)
 
 pos = 0
 nr_called = 0

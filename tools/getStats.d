@@ -29,6 +29,7 @@ import std.range;
 
 string[] fileNames;
 size_t nrHaplotypes;
+bool skipAmbiguous;
 
 void main(string[] args) {
   try {
@@ -43,6 +44,7 @@ void main(string[] args) {
 }
 
 void readArgs(string[] args) {
+  getopt(args, "skipAmbiguous", &skipAmbiguous);
   fileNames = args[1 .. $];
   enforce(fileNames.length > 0, "need at least one input file");
   nrHaplotypes = getNrHaplotypesFromFile(fileNames[0]);
@@ -86,29 +88,30 @@ void run() {
     auto f = File(filename, "r");
     foreach(line; f.byLine) {
       auto fields = line.strip().split();
-      calledSites += to!size_t(fields[2]);
       if(canFind(fields[3], '?'))
-        calledSites -= 1;
-      else {
-        auto alleleStrings = fields[3].split(",");
-        bool isSegSite;
-        auto nrObs = alleleStrings.length;
-        if(nrObs > 1)
-          ambiguousPhase += 1;
-        foreach(alleleString; alleleStrings) {
-          auto pairIndex = 0;
-          foreach(i; 0 .. M - 1) {
-            foreach(j; i + 1 .. M) {
-              if(alleleString[i] != alleleString[j]) {
-                isSegSite = true;
-                pairwiseHets[pairIndex] += 1.0 / nrObs;
-              }
-              pairIndex += 1;
+        continue;
+      calledSites += to!size_t(fields[2]);
+      auto alleleStrings = fields[3].split(",");
+      auto nrObs = alleleStrings.length;
+      if(nrObs > 1)
+        ambiguousPhase += 1;
+      if(nrObs > 1 && skipAmbiguous)
+        continue;
+      bool isSegSite;
+      foreach(alleleString; alleleStrings) {
+        auto pairIndex = 0;
+        foreach(i; 0 .. M - 1) {
+          foreach(j; i + 1 .. M) {
+            if(alleleString[i] != alleleString[j]) {
+              isSegSite = true;
+              pairwiseHets[pairIndex] += 1.0 / nrObs;
             }
+            pairIndex += 1;
           }
         }
-        if(isSegSite)
-          segSites += 1;
+      }
+      if(isSegSite) {
+        segSites += 1;
       }
     }
   }
