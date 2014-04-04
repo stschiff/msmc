@@ -7,3 +7,4 @@ push_release_ftp.sh
 run_scripts/
 tools/getStats
 *.o
+*.pyc
