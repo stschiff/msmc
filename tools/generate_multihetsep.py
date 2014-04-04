@@ -7,13 +7,14 @@ import copy
 import argparse
 
 class MaskIterator:
-  def __init__(self, filename):
+  def __init__(self, filename, negative=False):
     if filename[-3:] == ".gz":
       self.file = gzip.open(filename, "r")
     else:
       self.file = open(filename, "r")
     self.eof = False
     self.lastPos = 1
+    self.negative = negative
     self.readLine()
 
   def readLine(self):
@@ -35,13 +36,13 @@ class MaskIterator:
     while pos > self.end and not self.eof:
       self.readLine()
     if pos >= self.start and pos <= self.end:
-      return True
+      return True if not self.negative else False
     else:
-      return False
+      return False if not self.negative else True
 
 class MergedMask:
-  def __init__(self, mask_files):
-    self.maskIterators = [MaskIterator(f) for f in mask_files]
+  def __init__(self, mask_iterators):
+    self.maskIterators = mask_iterators
 
   def getVal(self, pos):
     return all((m.getVal(pos) for m in self.maskIterators))
@@ -60,7 +61,9 @@ class VcfIterator:
     fields = string.split(string.strip(line))
     chrom = fields[0]
     pos = int(fields[1])
-    alleles = fields[3:5]
+    alleles = [fields[3]]
+    for alt_a in string.split(fields[4], ","):
+      alleles.append(alt_a)
     geno = fields[9][:3]
     phased = geno[1] == "|"
     return (chrom, pos, tuple(alleles), (int(geno[0]), int(geno[2])), phased)
@@ -137,26 +140,41 @@ class JoinedVcfIterator:
     
 
 parser = argparse.ArgumentParser()
-parser.add_argument("files", nargs="+", help="Input files, must be alternating vcfs and masks: <vcf_1> <mask_1> [<vcf_2> <mask_2> ...]")
-parser.add_argument("--mask", help="apply an additional mask file, e.g. from mappability")
+parser.add_argument("files", nargs="+", help="Input VCF files")
+parser.add_argument("--mask", action="append", help="apply masks in bed format, should be given once for the calling mask from each individual, and in addition can be given for e.g. mappability or admixture masks")
+parser.add_argument("--negative_mask", action="append", help="same as mask, but interpreted as negative mask, so places where sites should be excluded")
 args = parser.parse_args()
 
-nrIndidividuals = len(args.files) / 2
+nrIndidividuals = len(args.files)
 nrHaplotypes = 2 * nrIndidividuals
 
 sys.stderr.write("generating msmc input file with {} haplotypes\n".format(nrHaplotypes))
 
-joinedVcfIterator = JoinedVcfIterator([args.files[2 * i] for i in range(nrIndidividuals)])
-maskFiles = [args.files[2 * i + 1] for i in range(nrIndidividuals)]
+joinedVcfIterator = JoinedVcfIterator(args.files)
+maskIterators = []
 if args.mask:
-  sys.stderr.write("adding additional mask: {}\n".format(args.mask))
-  maskFiles.append(args.mask)
+  for f in args.mask:
+    sys.stderr.write("adding mask: {}\n".format(f))
+    maskIterators.append(MaskIterator(f))
+if args.negative_mask:
+  for nm in args.negative_mask:
+    sys.stderr.write("adding negative mask: {}\n".format(nm))
+    maskIterators.append(MaskIterator(nm, True))
 
-mergedMask = MergedMask(maskFiles)
+mergedMask = MergedMask(maskIterators)
+
+def is_segregating(alleles):
+  orders = string.split(alleles, ",")
+  for o in orders:
+    for a in o[1:]:
+      if a != o[0]:
+        return True
+  return False
 
 pos = 0
 nr_called = 0
 for chrom, snp_pos, alleles in joinedVcfIterator:
+  # sys.stderr.write("{}\t{}\t{}\n".format(chrom, snp_pos, alleles))
   while pos < snp_pos:
     pos += 1
     if mergedMask.getVal(pos):
@@ -164,8 +182,9 @@ for chrom, snp_pos, alleles in joinedVcfIterator:
     if pos % 1000000 == 0:
       sys.stderr.write("processing pos {}\n".format(pos))
   if mergedMask.getVal(snp_pos):
-    print "{}\t{}\t{}\t{}".format(chrom, snp_pos, nr_called, alleles)
-    nr_called = 0
+    if is_segregating(alleles):
+      print "{}\t{}\t{}\t{}".format(chrom, snp_pos, nr_called, alleles)
+      nr_called = 0
   
   
   

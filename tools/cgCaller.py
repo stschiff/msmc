@@ -63,7 +63,7 @@ for line in input_file:
       allele1_qual = fields[14]
       allele2_qual = fields[15]
       if allele1_qual == "VQHIGH" and allele2_qual == "VQHIGH":
-        mask_generator.addCalledPosition(begin)
+        mask_generator.addCalledPosition(begin + 1)
         allele_indices = []
         alt_alleles = []
         if allele_1 != allele_ref:
