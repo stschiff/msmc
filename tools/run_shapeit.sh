@@ -34,8 +34,8 @@ shapeit -convert --input-haps $SHAPEIT_OUT --output-vcf $PHASED_VCF --output-log
 
 # zipping and indexing
 bcftools-exp-rc view -O z $PHASED_VCF > $PHASED_VCF.gz
-bcftools-exp-rc index $PHASED_VCF.gz
-bcftools-exp-rc index $VCF
+bcftools-exp-rc index -f $PHASED_VCF.gz
+bcftools-exp-rc index -f $VCF
 
 # merging phased and unphased vcfs, keeping all unphased sites from the original vcf, but replacing the phased ones.
 bcftools-exp-rc merge $VCF $PHASED_VCF.gz | awk '
@@ -43,7 +43,7 @@ bcftools-exp-rc merge $VCF $PHASED_VCF.gz | awk '
   $0 ~ /^##/ {print}
   $0 ~ /^#CHROM/ {print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10}
   $0 !~ /^#/ {
-    if($11 != "./.")
+    if(substr($11, 1, 3) != "./.")
       $10 = $11
     print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
   }' | bcftools-exp-rc view -O z > $MERGED_VCF
