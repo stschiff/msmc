@@ -62,24 +62,25 @@ for line in input_file:
     zygosity = fields[5]
     var_type = fields[6]
     
-    if sites_parser is not None:
-        while not sites_parser.end and sites_parser.pos < begin + 1:
-            sites_parser.tick()
     
     if var_type == "ref" and zygosity == "hom":
         for i in range(begin + 1, end + 1):
             mask_generator.addCalledPosition(i)
-        if sites_parser is not None:
-            if sites_parser.pos == begin + 1:
-                print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=begin+1, 
-                                                                                  ref_a=sites_parser.ref_a,
-                                                                                  alt_a=sites_parser.alt_a))
+            if sites_parser is not None:
+                while not sites_parser.end and sites_parser.pos < i:
+                    sites_parser.tick()
+                if sites_parser.pos == i:
+                    print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=i, 
+                                                                                      ref_a=sites_parser.ref_a,
+                                                                                      alt_a=sites_parser.alt_a))
   
     if var_type == "snp":
         if zygosity in ["hom", "het-ref", "het-alt"]:
             assert end - begin == 1
             allele_ref = fields[7]
             if sites_parser is not None:
+                while not sites_parser.end and sites_parser.pos < begin + 1:
+                    sites_parser.tick()
                 if sites_parser.pos == begin + 1:
                     assert allele_ref == sites_parser.ref_a
             allele_1 = fields[8]

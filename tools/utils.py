@@ -1,4 +1,5 @@
 import gzip
+import sys
 
 class MaskGenerator:
     def __init__(self, filename, chr):
@@ -21,7 +22,8 @@ class MaskGenerator:
 
 class LegendParser:
     def __init__(self, filename):
-        self.file = gzip.open(filename, "r") if filename[-3:] == ".gz" else open(filename, "rt")
+        print("opening legend file", filename, file=sys.stderr)
+        self.file = gzip.open(filename, "rt") if filename[-3:] == ".gz" else open(filename, "rt")
         self.end = False
         self.pos = -1
         self.ref_a = ''

@@ -50,7 +50,7 @@ for line in sys.stdin:
     if sites_parser is not None:
         while not sites_parser.end and sites_parser.pos < pos:
             sites_parser.tick()
-
+    
     if re.match("^[ACTGactg]$", refAllele) and re.match("^[ACTGactg\.]$", altAllele):
         dp_match = re.search("DP=(\d+)", info)
         mq_match = re.search("MQ=(\d+)", info)
