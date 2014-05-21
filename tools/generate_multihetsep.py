@@ -9,9 +9,9 @@ import argparse
 class MaskIterator:
   def __init__(self, filename, negative=False):
     if filename[-3:] == ".gz":
-      self.file = gzip.open(filename, "r")
+      self.file = gzip.open(filename, "rt")
     else:
-      self.file = open(filename, "r")
+      self.file = open(filename, "rt")
     self.eof = False
     self.lastPos = 1
     self.negative = negative
