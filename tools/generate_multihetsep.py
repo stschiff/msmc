@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import gzip
@@ -19,8 +19,8 @@ class MaskIterator:
 
   def readLine(self):
     try:
-      line = self.file.next()
-      fields = string.split(string.strip(line))
+      line = next(self.file)
+      fields = line.strip().split()
       if len(fields) == 2:
         self.start = int(fields[0])
         self.end = int(fields[1])
@@ -49,20 +49,20 @@ class MergedMask:
 
 class VcfIterator:
   def __init__(self, filename):
-    self.file = gzip.open(filename, "r")
+    self.file = gzip.open(filename, "rt")
   
   def __iter__(self):
     return self
   
-  def next(self):
-    line = self.file.next()
+  def __next__(self):
+    line = next(self.file)
     while line[0] == "#":
-      line = self.file.next()
-    fields = string.split(string.strip(line))
+      line = next(self.file)
+    fields = line.strip().split()
     chrom = fields[0]
     pos = int(fields[1])
     alleles = [fields[3]]
-    for alt_a in string.split(fields[4], ","):
+    for alt_a in fields[4].split(","):
       alleles.append(alt_a)
     geno = fields[9][:3]
     phased = geno[1] == "|"
@@ -94,12 +94,12 @@ class OrderedAlleles:
 class JoinedVcfIterator:
   def __init__(self, filenames):
     self.vcfIterators = [VcfIterator(f) for f in filenames]
-    self.current_lines = [v.next() for v in self.vcfIterators]
+    self.current_lines = [next(v) for v in self.vcfIterators]
   
   def __iter__(self):
     return self
   
-  def next(self):
+  def __next__(self):
     minIndices = self.getMinIndices()
     chrom = self.current_lines[minIndices[0]][0]
     pos = self.current_lines[minIndices[0]][1]
@@ -116,7 +116,7 @@ class JoinedVcfIterator:
         phased = self.current_lines[i][4]
         ordered_alleles.addGenotype(alleles[geno[0]], alleles[geno[1]], phased)
         try:
-          self.current_lines[i] = self.vcfIterators[i].next()
+          self.current_lines[i] = next(self.vcfIterators[i])
         except StopIteration:
           self.current_lines[i] = None
     return (chrom, pos, ordered_alleles.getPrint())
@@ -164,7 +164,7 @@ if args.negative_mask:
 mergedMask = MergedMask(maskIterators)
 
 def is_segregating(alleles):
-  orders = string.split(alleles, ",")
+  orders = alleles.split(",")
   for o in orders:
     for a in o[1:]:
       if a != o[0]:
@@ -180,10 +180,10 @@ for chrom, snp_pos, alleles in joinedVcfIterator:
     if mergedMask.getVal(pos):
       nr_called += 1
     if pos % 1000000 == 0:
-      sys.stderr.write("processing pos {}\n".format(pos))
+      print("processing pos {}".format(pos), file=sys.stderr)
   if mergedMask.getVal(snp_pos):
     if is_segregating(alleles):
-      print "{}\t{}\t{}\t{}".format(chrom, snp_pos, nr_called, alleles)
+      print(chrom, snp_pos, nr_called, alleles, sep="\t")
       nr_called = 0
   
   
