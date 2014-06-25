@@ -61,9 +61,9 @@ The four (tab-separated) columns are:
 # Generate input files
 ## Consensus calling
 ### ...from BAM
-I assume that you have one bam file for each sample you want to study. You will need a reference file for this. You can now call the consensus sequence for each individual via `tools/bamCaller.py`. This program reads samtools mpileup data from stdin, so you need to use it in a pipe. Here is an example line using the latest samtools (if using samtools 0.1.19 replace the `bcftools call -c -S indels` command e.g. with `bcftools view -cgI -`):
+I assume that you have one bam file for each sample you want to study. You will need a reference file for this. You can now call the consensus sequence for each individual via `tools/bamCaller.py`. This program reads samtools mpileup data from stdin, so you need to use it in a pipe. Here is an example line using the latest samtools (if using samtools 0.1.19 replace the `bcftools call -c -V indels` command e.g. with `bcftools view -cgI -`):
 
-    samtools mpileup -q 20 -Q 20 -C 50 -u -r <chr> -f <ref.fa> <bam> | bcftools call -c -S indels |
+    samtools mpileup -q 20 -Q 20 -C 50 -u -r <chr> -f <ref.fa> <bam> | bcftools call -c -V indels |
     tools/bamCaller.py <mean_cov> <out_mask.bed.gz> | gzip -c > <out.vcf.gz>
 
 where you need to give the average sequencing depth as `<mean_cov>`. This will generate two files: `<out_mask.bed.gz>` and `<out>.vcf.gz`. You can type `tools/bamCaller.py -h` to show options.
