@@ -7,6 +7,7 @@ import bz2
 import re
 import string
 import utils
+import io
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument("chr", help="Chromosome in the masterVar file")
@@ -29,11 +30,11 @@ print("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}".format(args.sa
 
 input_file = None
 if args.input[-3:] == ".gz":
-    input_file = gzip.open(args.input, "rt")
+    input_file = io.TextIOWrapper(gzip.open(args.input, "r"))
 elif args.input[-4:] == ".bz2":
-    input_file = bz2.open(args.input, "rt")
+    input_file = io.TextIOWrapper(bz2.open(args.input, "r"))
 else:
-    input_file = open(args.input, "rt")
+    input_file = io.TextIOWrapper(open(args.input, "r"))
     
 line_count = 0
 chromosome_read = False

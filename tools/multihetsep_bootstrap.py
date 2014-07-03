@@ -23,7 +23,7 @@ chunks = []
 for fn in args.files:
     print("reading", fn, file=sys.stderr)
     chunks_in_chrom = []
-    f = open(fn, "rt")
+    f = open(fn, "r")
     for line in f:
         fields = line.strip().split()
         pos, nr_called_sites = map(int, fields[1:3])

@@ -1,11 +1,12 @@
 import gzip
 import sys
+import io
 
 class MaskGenerator:
     def __init__(self, filename, chr):
         self.lastCalledPos = -1
         self.lastStartPos = -1
-        self.file = gzip.open(filename, "wt")
+        self.file = io.TextIOWrapper(gzip.open(filename, "w"))
         self.chr = chr
     
     # assume 1-based coordinate, output in bed format
@@ -23,7 +24,7 @@ class MaskGenerator:
 class LegendParser:
     def __init__(self, filename):
         print("opening legend file", filename, file=sys.stderr)
-        self.file = gzip.open(filename, "rt") if filename[-3:] == ".gz" else open(filename, "rt")
+        self.file = io.TextIOWrapper(gzip.open(filename, "r")) if filename[-3:] == ".gz" else open(filename, "r")
         self.end = False
         self.pos = -1
         self.ref_a = ''

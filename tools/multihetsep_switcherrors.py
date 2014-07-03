@@ -22,7 +22,7 @@ args = parser.parse_args()
 if args.seed is not None:
     random.seed(args.seed)
 
-f = open(args.file, "rt")
+f = open(args.file, "r")
 
 rate = 1.0 / args.length
 

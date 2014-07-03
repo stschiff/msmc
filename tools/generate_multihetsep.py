@@ -5,13 +5,14 @@ import gzip
 import string
 import copy
 import argparse
+import io
 
 class MaskIterator:
   def __init__(self, filename, negative=False):
     if filename[-3:] == ".gz":
-      self.file = gzip.open(filename, "rt")
+      self.file = io.TextIOWrapper(gzip.open(filename, "r"))
     else:
-      self.file = open(filename, "rt")
+      self.file = io.TextIOWrapper(open(filename, "r"))
     self.eof = False
     self.lastPos = 1
     self.negative = negative
@@ -49,7 +50,7 @@ class MergedMask:
 
 class VcfIterator:
   def __init__(self, filename):
-    self.file = gzip.open(filename, "rt")
+    self.file = io.TextIOWrapper(gzip.open(filename, "r"))
   
   def __iter__(self):
     return self
