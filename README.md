@@ -26,7 +26,7 @@ as a function of time from multiple phased haplotypes. When only two haplotypes 
 * You can now specify the exact individual haplotypes used for inference, flag `I`
 * Theta is automatically determined if you don't pass it via the command line.
 
-# Installation
+# Installation and Requirements
 
 Precompiled versions for Mac and Linux (both 64 bit) can be downloaded via ftp from
 
@@ -35,6 +35,8 @@ Precompiled versions for Mac and Linux (both 64 bit) can be downloaded via ftp f
 To build MSMC yourself, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system.
 
 To build the program, have a look at the two Makefiles. Adjust the path to the GSL and eventually run the `release` target. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
+
+For generating the input files using my scripts, you need Python 3 (Yes, the future is now!).
 
 # Input File Format
 
