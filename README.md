@@ -36,7 +36,7 @@ To build MSMC yourself, the [GNU Scientific Library (GSL)](http://www.gnu.org/so
 
 To build the program, have a look at the two Makefiles. Adjust the path to the GSL and eventually run the `release` target. The program is written in the [D programming language](http://dlang.org). The reference compiler from Digitalmars can be downloaded [here](http://dlang.org/download.html).
 
-For generating the input files using my scripts, you need Python 3 (Yes, the future is now!).
+For generating the input files using my scripts, you need Python 3.4. I am sorry for this cutting edge dependency, I may make things compatible with Python 3.2 soon, but at the moment apparently my scripts won't work unless you use python 3.4.
 
 # Input File Format
 
