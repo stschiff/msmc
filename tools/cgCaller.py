@@ -78,7 +78,6 @@ for line in input_file:
     if var_type == "snp":
         if zygosity in ["hom", "het-ref", "het-alt"]:
             assert end - begin == 1, "ERROR: found SNP which is longer than 1bp at position {}. This may indicate that you are using a newer version than 2.2 of the Complete Genomics Pipeline, which is not yet supported".format(begin + 1)
-                continue
             allele_ref = fields[7]
             if sites_parser is not None:
                 while not sites_parser.end and sites_parser.pos < begin + 1:
