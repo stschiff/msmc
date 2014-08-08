@@ -105,3 +105,49 @@ for line in input_file:
                     allele_indices.append(2)
                 print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, 
                        pos=begin+1, ref_a=allele_ref, alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
+
+	if var_type == "sub":
+		if zygosity in ["hom", "het-ref", "het-alt"]:
+			allele_ref = fields[7]
+			allele_1 = fields[8]
+			allele_2 = fields[9]
+			allele1_qual = fields[14]
+			allele2_qual = fields[15]
+			if allele1_qual == "VQHIGH" and allele2_qual == "VQHIGH" and len(allele_ref)==len(allele_1) and len(allele_ref)==len(allele_2):
+				for i in range(0,len(allele_1)):
+					mask_generator.addCalledPosition(begin + 1)
+					allele_indices = []
+					alt_alleles = []
+					if allele_1[i] != allele_ref[i]:
+						alt_alleles.append(allele_1[i])
+						allele_indices.append(1)
+					elif allele_1[i] == allele_ref[i]:
+						allele_indices.append(0)
+					if allele_2[i] == allele_ref[i]:
+						allele_indices.append(0)
+					elif allele_2[i] == allele_1[i]:
+						allele_indices.append(1)
+					else:
+						if len(alt_alleles)==0:
+							alt_alleles.append(allele_2[i])
+							allele_indices.append(1)
+						else:
+							alt_alleles.append(allele_2[i])
+							allele_indices.append(2)
+					if allele_indices[0]==0 and allele_indices[1]==0:
+						if sites_parser is not None:
+							while not sites_parser.end and sites_parser.pos < begin+i+1:
+								sites_parser.tick()
+							if sites_parser.pos == begin+i+1:
+								assert allele_ref[i] == sites_parser.ref_a
+								print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=begin+i+1, 
+																					  ref_a=sites_parser.ref_a,
+																					  alt_a=sites_parser.alt_a))
+					else:
+						if sites_parser is not None:
+							while not sites_parser.end and sites_parser.pos < begin+i+1:
+								sites_parser.tick()
+							if sites_parser.pos == begin+i+1:
+								assert allele_ref[i] == sites_parser.ref_a
+						print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, 
+					   pos=begin+i+1, ref_a=allele_ref[i], alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
