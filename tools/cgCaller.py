@@ -127,23 +127,23 @@ for line in input_file:
                     elif allele_2[i] == allele_1[i]:
                         allele_indices.append(1)
                     else:
-			if len(alt_alleles)==0:
-			    alt_alleles.append(allele_2[i])
-			    allele_indices.append(1)
-			else:
-			    alt_alleles.append(allele_2[i])
-			    allele_indices.append(2)
-		    if allele_indices[0]==0 and allele_indices[1]==0:
-		    	if sites_parser is not None:
-		    	    while not sites_parser.end and sites_parser.pos < begin+i+1:
-		    	    	sites_parser.tick()
-		    	    if sites_parser.pos == begin+i+1:
-		    	    	assert allele_ref[i] == sites_parser.ref_a
-		    	    	print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=begin+i+1,ref_a=sites_parser.ref_a,alt_a=sites_parser.alt_a))
-		    else:
-		    	if sites_parser is not None:
-		    	    while not sites_parser.end and sites_parser.pos < begin+i+1:
-		    	    	sites_parser.tick()
-		    	    if sites_parser.pos == begin+i+1:
-		    	    	assert allele_ref[i] == sites_parser.ref_a
-				print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, pos=begin+i+1, ref_a=allele_ref[i], alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
+            if len(alt_alleles)==0:
+                alt_alleles.append(allele_2[i])
+                allele_indices.append(1)
+            else:
+                alt_alleles.append(allele_2[i])
+                allele_indices.append(2)
+            if allele_indices[0]==0 and allele_indices[1]==0:
+                if sites_parser is not None:
+                    while not sites_parser.end and sites_parser.pos < begin+i+1:
+                        sites_parser.tick()
+                    if sites_parser.pos == begin+i+1:
+                        assert allele_ref[i] == sites_parser.ref_a
+                        print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=begin+i+1,ref_a=sites_parser.ref_a,alt_a=sites_parser.alt_a))
+            else:
+                if sites_parser is not None:
+                    while not sites_parser.end and sites_parser.pos < begin+i+1:
+                        sites_parser.tick()
+                    if sites_parser.pos == begin+i+1:
+                        assert allele_ref[i] == sites_parser.ref_a
+                print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, pos=begin+i+1, ref_a=allele_ref[i], alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
