@@ -4,10 +4,10 @@ This software implements MSMC, a method to infer population size and gene flow f
 
 In short, msmc can infer
 
-* the scaled population size of a single population
-* gene flow across multiple populations
+* the scaled population size of a single population as a function of time
+* the timing and nature of population separations between two populations
 
-as a function of time from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](http://github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
+from multiple phased haplotypes. When only two haplotypes are given, MSMC is similar to [PSMC](http://github.com/lh3/psmc), and we call it PSMC' because of subtle differences in the method and the underlying model, which allows PSMC' to infer more accurately the recombination rate.
 
 # Changes:
 
@@ -57,7 +57,7 @@ The four (tab-separated) columns are:
 
 1. the chromosome (can be any string)
 2. the position in the chromosome
-3. the number of called sites (homozygous, except the site itself which can be hom. or het.) since the last segregating site. This number *includes* the given location. This means that this number must always be greater than zero!
+3. the number of called sites (homozygous, except the site itself which can be hom. or het.) since the last segregating site. This number *includes* the given location. This means that this number must always be greater than zero! It also means that this number cannot be larger than the difference between the current and the previous position.
 4. the ordered and phased alleles of the multiple haplotypes. If phasing is unknown, multiple phasings can be given, separated by a comma to indicate the different possibilities. This is the case in the line before the last in the example above. Unknown alleles can be indicated by "?", but they can also simply be left out and expressed through a reduced number of called sites in the line of the next variant.
 
 # Generate input files
@@ -108,7 +108,7 @@ This example uses the vcf files of two individuals, with both of their calling m
 
 I have tested MSMC on up to 8 haplotypes, that is 4 diploid individuals. Also, when obtaining population size estimates, all samples should be from the same population. When studying gene flow, use an equal number of individuals from each of two populations. You can in principle use more populations and/or more individuals and/or an uneven set of individuals per population, but these cases have not been tested properly.
 
-Note that all input files for `tools/generate_multihetsep.py` need to be gzipped, which is done automatically if you generated them with the `tools/consensus_caller.sh` as described above.
+Note that all input files for `tools/generate_multihetsep.py` need to be gzipped.
 
 # Estimation of historical effective population sizes
 
@@ -135,7 +135,7 @@ The final file contains multiple columns with a header line. Here are the first 
     
 The first column simply gives the zero-based index of the time interval. The second and third columns give the scaled begin and end time of the interval. The fourth column gives the scaled inverse population size (scaled coalescence rate) of the interval. See below on how to convert scaled times and rates to real numbers.
 
-# Estimation of historical gene flow
+# Analyzing population separations
 
 If the dataset contains samples from different subpopulations of the same species (i.e. not too diverged), MSMC can estimate gene flow as a function of time. Assuming you have four haplotypes, two of which are from population 0, and two from population 1, the command for running the inference is
 
