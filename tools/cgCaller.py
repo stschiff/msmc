@@ -12,7 +12,7 @@ import io
 argparser = argparse.ArgumentParser()
 argparser.add_argument("chr", help="Chromosome in the masterVar file")
 argparser.add_argument("sample_id", help="Sample ID to put into the VCF file")
-argparser.add_argument("out_mask", help="Prefix for mask- and vcf file")
+argparser.add_argument("out_mask", help="mask-file to write to")
 argparser.add_argument("input", help="Complete Genomics masterVarBeta file (uncompressed or compressed with gzip or bzip2)")
 argparser.add_argument("--max_pos", type=int, default=0)
 argparser.add_argument("--legend_file", help="Impute2 reference panel legend file, can be gzipped or not")
@@ -34,7 +34,7 @@ if args.input[-3:] == ".gz":
 elif args.input[-4:] == ".bz2":
     input_file = io.TextIOWrapper(bz2.open(args.input, "r"))
 else:
-    input_file = io.TextIOWrapper(open(args.input, "r"))
+    input_file = open(args.input, "r")
     
 line_count = 0
 chromosome_read = False
@@ -77,7 +77,7 @@ for line in input_file:
   
     if var_type == "snp":
         if zygosity in ["hom", "het-ref", "het-alt"]:
-            assert end - begin == 1, "ERROR: found SNP which is longer than 1bp at position {}. This may indicate that you are using a newer version than 2.2 of the Complete Genomics Pipeline, which is not yet supported".format(begin + 1)
+            assert end - begin == 1
             allele_ref = fields[7]
             if sites_parser is not None:
                 while not sites_parser.end and sites_parser.pos < begin + 1:
@@ -92,7 +92,9 @@ for line in input_file:
                 mask_generator.addCalledPosition(begin + 1)
                 allele_indices = []
                 alt_alleles = []
-                if allele_1 != allele_ref:
+                if allele_1 == allele_ref:
+                    allele_indices.append(0)
+                else:
                     alt_alleles.append(allele_1)
                     allele_indices.append(1)
                 if allele_2 == allele_ref:
@@ -105,45 +107,45 @@ for line in input_file:
                 print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, 
                        pos=begin+1, ref_a=allele_ref, alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
 
-    if var_type == "sub":
-        if zygosity in ["hom", "het-ref", "het-alt"]:
-            allele_ref = fields[7]
-            allele_1 = fields[8]
-            allele_2 = fields[9]
-            allele1_qual = fields[14]
-            allele2_qual = fields[15]
-            if allele1_qual == "VQHIGH" and allele2_qual == "VQHIGH" and len(allele_ref)==len(allele_1) and len(allele_ref)==len(allele_2):
-                for i in range(0,len(allele_1)):
-                    mask_generator.addCalledPosition(begin + 1)
-                    allele_indices = []
-                    alt_alleles = []
-                    if allele_1[i] != allele_ref[i]:
-                        alt_alleles.append(allele_1[i])
-                        allele_indices.append(1)
-                    elif allele_1[i] == allele_ref[i]:
-                        allele_indices.append(0)
-                    if allele_2[i] == allele_ref[i]:
-                        allele_indices.append(0)
-                    elif allele_2[i] == allele_1[i]:
-                        allele_indices.append(1)
-                    else:
-            if len(alt_alleles)==0:
-                alt_alleles.append(allele_2[i])
-                allele_indices.append(1)
-            else:
-                alt_alleles.append(allele_2[i])
-                allele_indices.append(2)
-            if allele_indices[0]==0 and allele_indices[1]==0:
-                if sites_parser is not None:
-                    while not sites_parser.end and sites_parser.pos < begin+i+1:
-                        sites_parser.tick()
-                    if sites_parser.pos == begin+i+1:
-                        assert allele_ref[i] == sites_parser.ref_a
-                        print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=begin+i+1,ref_a=sites_parser.ref_a,alt_a=sites_parser.alt_a))
-            else:
-                if sites_parser is not None:
-                    while not sites_parser.end and sites_parser.pos < begin+i+1:
-                        sites_parser.tick()
-                    if sites_parser.pos == begin+i+1:
-                        assert allele_ref[i] == sites_parser.ref_a
-                print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, pos=begin+i+1, ref_a=allele_ref[i], alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
+    # if var_type == "sub":
+    #     if zygosity in ["hom", "het-ref", "het-alt"]:
+    #         allele_ref = fields[7]
+    #         allele_1 = fields[8]
+    #         allele_2 = fields[9]
+    #         allele1_qual = fields[14]
+    #         allele2_qual = fields[15]
+    #         if allele1_qual == "VQHIGH" and allele2_qual == "VQHIGH" and len(allele_ref)==len(allele_1) and len(allele_ref)==len(allele_2):
+    #             for i in range(0,len(allele_1)):
+    #                 mask_generator.addCalledPosition(begin + 1)
+    #                 allele_indices = []
+    #                 alt_alleles = []
+    #                 if allele_1[i] != allele_ref[i]:
+    #                     alt_alleles.append(allele_1[i])
+    #                     allele_indices.append(1)
+    #                 elif allele_1[i] == allele_ref[i]:
+    #                     allele_indices.append(0)
+    #                 if allele_2[i] == allele_ref[i]:
+    #                     allele_indices.append(0)
+    #                 elif allele_2[i] == allele_1[i]:
+    #                     allele_indices.append(1)
+    #                 else:
+    #         if len(alt_alleles)==0:
+    #             alt_alleles.append(allele_2[i])
+    #             allele_indices.append(1)
+    #         else:
+    #             alt_alleles.append(allele_2[i])
+    #             allele_indices.append(2)
+    #         if allele_indices[0]==0 and allele_indices[1]==0:
+    #             if sites_parser is not None:
+    #                 while not sites_parser.end and sites_parser.pos < begin+i+1:
+    #                     sites_parser.tick()
+    #                 if sites_parser.pos == begin+i+1:
+    #                     assert allele_ref[i] == sites_parser.ref_a
+    #                     print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t0/0".format(chrom=args.chr, pos=begin+i+1,ref_a=sites_parser.ref_a,alt_a=sites_parser.alt_a))
+    #         else:
+    #             if sites_parser is not None:
+    #                 while not sites_parser.end and sites_parser.pos < begin+i+1:
+    #                     sites_parser.tick()
+    #                 if sites_parser.pos == begin+i+1:
+    #                     assert allele_ref[i] == sites_parser.ref_a
+    #             print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, pos=begin+i+1, ref_a=allele_ref[i], alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
