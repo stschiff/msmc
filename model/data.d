@@ -128,8 +128,8 @@ unittest {
 }
 
 size_t getNrHaplotypesFromFile(string filename) {
-  scope(exit) file.close();
   auto file = File(filename, "r");
+  scope(exit) file.close();
   auto line = file.readln();
   line = line.strip();
   checkDataLine(line);
@@ -139,7 +139,6 @@ size_t getNrHaplotypesFromFile(string filename) {
   else {
     auto splitted = fields[3].split(",");
     return cast(size_t)splitted[0].length;
-  
   }
 }
 
