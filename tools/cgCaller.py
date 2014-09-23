@@ -103,7 +103,7 @@ for line in input_file:
                     allele_indices.append(1)
                 else:
                     alt_alleles.append(allele_2)
-                    allele_indices.append(2)
+                    allele_indices.append(len(alt_alleles))
                 print("{chrom}\t{pos}\t.\t{ref_a}\t{alt_a}\t.\tPASS\t.\tGT\t{gen1}/{gen2}".format(chrom=args.chr, 
                        pos=begin+1, ref_a=allele_ref, alt_a=",".join(alt_alleles), gen1=allele_indices[0], gen2=allele_indices[1]))
 
