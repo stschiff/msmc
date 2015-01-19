@@ -69,9 +69,7 @@ auto helpString = "Usage: msmc [options] <datafiles>
     -o, --outFilePrefix=<string> : file prefix to use for all output files
     -m, --mutationRate=<double> : mutation rate, scaled by 2N. In case of more than two haplotypes, this needs to be 
           the same as was used in running \"msmc branchlength\".
-    -r, --recombinationRate=<double> : recombination rate, scaled by 2N, to begin with
-          [by default set to mutationRate / 4]. Recombination rate inference does not work very well for 
-          more than two haplotypes. Using the -R option is recommended for more than 2 haplotypes.
+    --rhoOverMu=<double>: ratio of recombination rate over mutation rate. Default=0.25.
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
     -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
     -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [defaults to the same number of segments specified through -p]
@@ -140,12 +138,13 @@ void parseCommandLine(string[] args) {
   if(args.length == 1) {
     displayHelpMessageAndExit();
   }
-
+  
+  auto rhoOverMu = 0.25;
   getopt(args,
       std.getopt.config.caseSensitive,
       "maxIterations|i", &maxIterations,
       "mutationRate|m", &mutationRate,
-      "recombinationRate|r", &recombinationRate,
+      "rhoOverMu", &rhoOverMu,
       "subpopLabels|P", &handleSubpopLabelsString,
       "timeSegmentPattern|p", &handleTimeSegmentPatternString,
       "nrThreads|t", &nrThreads,
@@ -179,8 +178,7 @@ void parseCommandLine(string[] args) {
     mutationRate = getTheta(inputData, indices.length) / 2.0;
     stderr.writeln(mutationRate);
   }
-  if(isNaN(recombinationRate))
-    recombinationRate = mutationRate / 4.0;
+  recombinationRate = mutationRate * rhoOverMu;
   nrTimeSegments = timeSegmentPattern.reduce!"a+b"();
   if(nrTtotSegments == 0)
     nrTtotSegments = nrTimeSegments;
