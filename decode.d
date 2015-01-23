@@ -31,7 +31,9 @@ import model.propagation_core_fastImpl;
 import branchlength;
 
 double mutationRate, recombinationRate;
-size_t nrTimeSegments=40, nrTtotSegments=40, stride=1000;
+size_t nrTimeSegments=40;
+size_t nrTtotSegments;
+size_t stride=1000;
 bool tTot = false;
 string inputFileName;
 size_t nrHaplotypes;
@@ -64,6 +66,8 @@ void parseCommandlineArgs(string[] args) {
   enforce(args.length == 2, "need exactly one input file");
   inputFileName = args[1];
   nrHaplotypes = getNrHaplotypesFromFile(inputFileName);
+  if(!nrTtotSegments)
+      nrTtotSegments = nrTimeSegments;
   enforce(mutationRate > 0, "need positive mutationRate");
   enforce(recombinationRate > 0, "need positive recombinationRate");
 }
@@ -75,9 +79,8 @@ Options:
 -r, --recombinationRate <double>
 -t, --nrTimeSegments <int>
 --nrThreads <int> : nr of threads, defaults to nr of CPUs
--T, --nrTtotSegments <int>
 --tTot : output the total branch length rather than the first coalescent time
--s, --stride <int>");
+-s, --stride <int>: stride width in basepairs [default=1000]");
 }
 
 void run() {
