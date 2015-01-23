@@ -67,26 +67,16 @@ auto helpString = "Usage: msmc [options] <datafiles>
   Options:
     -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
     -o, --outFilePrefix=<string> : file prefix to use for all output files
-    -m, --mutationRate=<double> : mutation rate, scaled by 2N. In case of more than two haplotypes, this needs to be 
-          the same as was used in running \"msmc branchlength\".
-    --rhoOverMu=<double>: ratio of recombination rate over mutation rate. Default=0.25.
+    -r, --rhoOverMu=<double>: ratio of recombination rate over mutation rate. Default=0.25.
     -t, --nrThreads=<size_t> : nr of threads to use (defaults to nr of CPUs)
     -p, --timeSegmentPattern=<string> : pattern of fixed time segments [default=10*1+15*2]
-    -T, --nrTtotSegments=<size_t> : number of discrete values of the total branchlength Ttot [defaults to the same number of segments specified through -p]
     -P, --subpopLabels=<string> comma-separated subpopulation labels (assume one single population by default, with 
           number of haplotypes inferred from first input file). For cross-population analysis with 4 haplotypes, 2 
           coming from each subpopulation, set this to 0,0,1,1
     -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
-    -v, --verbose: write out the expected number of transition matrices (into a separate file)
-    -d, --directedEmissions: use directed Emissions model, using knowledge of the ancestral allele.
     -I, --indices: indices (comma-separated) of alleles in the data file to run over
-    --skipAmbiguous: skip sites with ambiguous phasing. Recommended for gene flow analysis
-    --naiveImplementation: use naive HMM implementation [for debugging only]
-    --fixedPopSize: learn only the cross-population coalescence rates, keep the population sizes fixed [not recommended]
-    --hmmStrideWidth <int> : stride width to traverse the data in the expectation step [default=1000]
-    --initialLambdaVec <str> : comma-separated string of lambda-values to start with. This can be used to
-      continue a previous run by copying the values in the last row and the third column of the corresponding
-      *.loop file";
+    -s, --skipAmbiguous: skip sites with ambiguous phasing. Recommended for gene flow analysis
+    -h, --help: show this message";
 
 void main(string[] args) {
   try {
@@ -132,6 +122,7 @@ void parseCommandLine(string[] args) {
   }
   
   void handleIndices(string option, string value) {
+    enforce(match(value, r"^[\d.]+[,[\d.]+]+"), text("illegal indices: ", value));
     indices = std.string.split(value, ",").map!"a.to!size_t()"().array();
   }
   
@@ -143,17 +134,17 @@ void parseCommandLine(string[] args) {
   getopt(args,
       std.getopt.config.caseSensitive,
       "maxIterations|i", &maxIterations,
-      "mutationRate|m", &mutationRate,
-      "rhoOverMu", &rhoOverMu,
+      "mutationRate", &mutationRate,
+      "rhoOverMu|r", &rhoOverMu,
       "subpopLabels|P", &handleSubpopLabelsString,
       "timeSegmentPattern|p", &handleTimeSegmentPatternString,
       "nrThreads|t", &nrThreads,
-      "nrTtotSegments|T", &nrTtotSegments,
-      "verbose|v", &verbose,
+      "nrTtotSegments", &nrTtotSegments,
+      "verbose", &verbose,
       "outFilePrefix|o", &outFilePrefix,
-      "directedEmissions|d", &directedEmissions,
+      "directedEmissions", &directedEmissions,
       "indices|I", &handleIndices,
-      "skipAmbiguous", &skipAmbiguous,
+      "skipAmbiguous|s", &skipAmbiguous,
       "help|h", &displayHelpMessageAndExit,
       "naiveImplementation", &naiveImplementation,
       "hmmStrideWidth", &hmmStrideWidth,
@@ -174,7 +165,7 @@ void parseCommandLine(string[] args) {
   enforce(indices.length == subpopLabels.length, "nr haplotypes in subpopLabels and indices must be equal");
   inputData = readDataFromFiles(inputFileNames, directedEmissions, indices, skipAmbiguous);
   if(isNaN(mutationRate)) {
-    stderr.write("estimating mutation rate: ");
+    stderr.write("estimating scaled mutation rate: ");
     mutationRate = getTheta(inputData, indices.length) / 2.0;
     stderr.writeln(mutationRate);
   }
