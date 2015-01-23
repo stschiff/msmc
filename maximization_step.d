@@ -241,7 +241,7 @@ unittest {
   auto minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, false, false);
   auto rho = 0.001;
   auto x = minFunc.getXfromLambdaVec(lambdaVec);
-  x ~= minFunc.getXfromRecombinationRate(rho);
+  x ~= log(rho);
   auto lambdaFromX = minFunc.getLambdaVecFromX(x);
   auto rhoFromX = minFunc.getRecombinationRateFromX(x);
   foreach(i; 0 .. lambdaVec.length)
@@ -250,7 +250,7 @@ unittest {
 
   minFunc = new MinFunc(expectationResultVec, expectationResultMat, params, timeSegmentPattern, true, false);
   x = minFunc.getXfromLambdaVec(lambdaVec);
-  x ~= minFunc.getXfromRecombinationRate(rho);
+  x ~= log(rho);
   lambdaFromX = minFunc.getLambdaVecFromXfixedPop(x);
   rhoFromX = minFunc.getRecombinationRateFromX(x);
   foreach(i; 0 .. lambdaVec.length)

@@ -114,26 +114,27 @@ unittest {
   assert(normalizeAlleleString("TC") == "01");
 }
 
-void checkDataLine(const char[] line) {
-  auto r = regex(r"^\w+\s\d+\s\d+(\s[ACTG01\?,]+){0,1}$");
-  enforce(match(line, r));
-}
-
-unittest {
-  assertThrown(checkDataLine("1 20 5 AACC,AACA 2.44"));
-  assertNotThrown(checkDataLine("1 20 5 AACC"));
-  assertNotThrown(checkDataLine("4 5 2"));
-  assertNotThrown(checkDataLine("1 10 5 ACC"));
-  assertThrown(checkDataLine("1 20 5 AGGSSXX"));
-}
+// void checkDataLine(const char[] line) {
+//   auto r = regex(r"^\w+\s\d+\s\d+(\s[ACTG01\?,]+){0,1}$");
+//   enforce(match(line, r));
+// }
+//
+// unittest {
+//   assertThrown(checkDataLine("1 20 5 AACC,AACA 2.44"));
+//   assertNotThrown(checkDataLine("1 20 5 AACC"));
+//   assertNotThrown(checkDataLine("4 5 2"));
+//   assertNotThrown(checkDataLine("1 10 5 ACC"));
+//   assertThrown(checkDataLine("1 20 5 AGGSSXX"));
+// }
 
 size_t getNrHaplotypesFromFile(string filename) {
   auto file = File(filename, "r");
   scope(exit) file.close();
   auto line = file.readln();
   line = line.strip();
-  checkDataLine(line);
+  // checkDataLine(line);
   auto fields = line.strip().split();
+  enforce(fields.length > 2, "illegal input file");
   if(fields.length < 4)
     return 2;
   else {
@@ -178,11 +179,17 @@ SegSite_t[] readSegSites(string filename, bool directedEmissions, size_t[] indic
   
   auto f = File(filename, "r");
   long lastPos = -1;
+  auto chrom = "";
   foreach(line; f.byLine()) {
     // checkDataLine(line.strip());
     auto fields = line.strip().split();
+    if(chrom == "")
+        chrom = fields[0].idup;
+    else
+        enforce(chrom == fields[0], "chromosomes must all be the same within one file (sorry)");
     auto pos = to!size_t(fields[1]);
     auto nrCalledSites = to!size_t(fields[2]);
+    enforce(nrCalledSites > 0, "nr of called sites (3rd column in input file) must be always > 0");
     if(lastPos == -1) {
       lastPos = pos - nrCalledSites;
     }
