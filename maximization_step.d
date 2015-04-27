@@ -22,6 +22,7 @@ import std.stdio;
 import std.random;
 import std.exception;
 import std.algorithm;
+import std.string;
 import model.msmc_model;
 import model.triple_index;
 import model.triple_index_marginal;
