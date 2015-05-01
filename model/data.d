@@ -128,9 +128,9 @@ unittest {
 // }
 
 size_t getNrHaplotypesFromFile(string filename) {
-  auto file = File(filename, "r");
-  scope(exit) file.close();
-  auto line = file.readln();
+  auto f = File(filename, "r");
+  scope(exit) f.close();
+  auto line = f.readln();
   line = line.strip();
   // checkDataLine(line);
   auto fields = line.strip().split();
