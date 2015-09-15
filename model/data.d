@@ -263,6 +263,7 @@ SegSite_t[] readSegSites(string filename, bool directedEmissions, size_t[] indic
     assert(ret[i].pos > ret[i - 1].pos, text([i, ret[i].pos, ret[i - 1].pos]));
   }
   
+  enforce(ret.length > 0, "found empty input file: " ~ filename);
   return ret;
 }
 
