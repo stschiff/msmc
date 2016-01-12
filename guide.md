@@ -83,3 +83,15 @@ MSMC outputs times and rates scaled by the mutation rate per basepair per genera
 First, scaled times are given in units of the per-generation mutation rate. This means that in order to convert scaled times to generations, divide them by the mutation rate. In humans, we used mu=1.25e-8 per basepair per generation.To convert generations into years, multiply by the generation time, for which we used 30 years.
 
 To get population sizes out of coalescence rates, first take the inverse of the coalescence rate, scaledPopSize = 1 / lambda00. Then divide this scaled population size by 2*mu (yes, this factor 2 is different from the time scaling, sorry).
+
+## Estimating the local tMRCA states
+
+MSMC contains a tool called `decode`. It can be compiled by running `make build/decode`, which will put the executable under the `build` directory. This program takes as input file the standard MSMC input file for a single chromosome and outputs the posterior probabilities for each state. You run it like this:
+
+    build/decode -m 0.0005 -r 0.0004 <input_file> > posteriors.txt
+
+Type `build/decode` for a short help. The options `-m` and `-r` specify the scaled mutation- and recombination rates, respectively. Ideally, the scaled mutation rate should be set to half the heterozygosity in your data (half because here we scale with 2N, and the heterozygosity is scaled by 4N). In practice, for this tool the precise value is not too important. For example, in humans, I usually just assume a heterozygosity of 0.001 for Africans, and 0.00075 for Non-Africans, so I put either `-m 0.0005` for Africans or `-m 0.000375` for Non-Africans. The recombination rate does not affect results strongly, either, and I usually put it to to about 80% of the mutation rate, so `-r 0.0004` for Africans and `-r 0.0003` or so for Non-Africans.
+
+The first row of the output is a header row specifying the lower ends of the time boundaries for each state. The rest of the output is a large matrix. At every row, the first value is the position in the genome, and the values from the second position are the posterior probabilities for all hidden tMRCA states in the model. The positions are by default spaced every 1000 basepairs, but that can be controlled with the `-s` flag.
+
+As a first step, I recommend plotting the matrix as an image plot with squares for each matrix entry. This would then space all the states equally. It is more difficult to make a plot with the correct time boundaries, as that requires plotting squares with variable height (this is what has been done in Figure 1b of the paper).
