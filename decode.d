@@ -23,6 +23,7 @@ import std.exception;
 import std.c.stdlib;
 import std.algorithm;
 import std.parallelism;
+import std.range;
 import model.msmc_hmm;
 import model.data;
 import model.time_intervals;
@@ -77,7 +78,7 @@ void displayHelpMessage() {
 Options:
 -m, --mutationRate <double>
 -r, --recombinationRate <double>
--t, --nrTimeSegments <int>
+-t, --nrTimeSegments <int> [default=40]
 --nrThreads <int> : nr of threads, defaults to nr of CPUs
 --tTot : output the total branch length rather than the first coalescent time
 -s, --stride <int>: stride width in basepairs [default=1000]");
@@ -138,6 +139,7 @@ void decodeWithHmm(MSMC_hmm hmm) {
   auto backwardState = hmm.propagationCore.newBackwardState();
   
   double[][] posteriors;
+  double [] positions;
   for(size_t pos = hmm.segsites[$ - 1].pos; pos > hmm.segsites[0].pos && pos <= hmm.segsites[$ - 1].pos; pos -= stride)
   {
     hmm.getForwardState(forwardState, pos);
@@ -147,11 +149,20 @@ void decodeWithHmm(MSMC_hmm hmm) {
     auto norm = posterior.reduce!"a+b"();
     posterior[] /= norm;
     posteriors ~= posterior;
+    positions ~= pos;
   }
   
-  foreach_reverse(posterior; posteriors) {
-    foreach(p; posterior)
-      write(p, " ");
+  auto timeBoundaries = hmm.propagationCore.getMSMC().timeIntervals.boundaries.dup;
+  timeBoundaries[0] = 0.0;
+  write("#time_boundaries:\t");
+  foreach(t; timeBoundaries[0 .. $ - 1])
+      write(t, "\t");
+  writeln("");
+  
+  foreach_reverse(e; zip(positions, posteriors)) {
+    write(e[0], "\t");
+    foreach(p; e[1])
+      write(p, "\t");
     writeln("");
   }
   
