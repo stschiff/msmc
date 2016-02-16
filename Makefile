@@ -1,5 +1,6 @@
 # Set this variable to your static gsl libraries
-GSL = /usr/local/lib/libgsl.a /usr/local/lib/libgslcblas.a
+# GSL = /usr/local/lib/libgsl.a /usr/local/lib/libgslcblas.a
+GSL=/usr/lib/libgsl.a /usr/lib/libgslcblas.a
 
 build/msmc : model/*.d powell.d brent.d maximization_step.d expectation_step.d msmc.d branchlength.d logger.d
 	dmd -O ${GSL} -odbuild -ofbuild/msmc $^
