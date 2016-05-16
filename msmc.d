@@ -63,7 +63,7 @@ size_t[] indices;
 string logFileName, loopFileName, finalFileName;
 
 
-auto helpString = "Usage: msmc [options] <datafiles>
+auto helpString = "This is MSMC Version 1.0.0. Usage: msmc [options] <datafiles>
   Options:
     -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
     -o, --outFilePrefix=<string> : file prefix to use for all output files
