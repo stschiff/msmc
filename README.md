@@ -11,9 +11,7 @@ from multiple phased haplotypes. When only two haplotypes are given, MSMC is sim
 
 # Installation and Requirements
 
-Precompiled versions for Mac and Linux (both 64 bit) can be downloaded via ftp from
-
-    ftp://ftp.sanger.ac.uk/pub/users/ss27/msmc/
+Precompiled versions for Mac and Linux (both 64 bit) can be downloaded on the "Releases" tab within this github repository.
 
 To build MSMC yourself, the [GNU Scientific Library (GSL)](http://www.gnu.org/software/gsl/) must be installed on your system.
 
