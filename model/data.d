@@ -23,7 +23,7 @@ import std.string;
 import std.conv;
 import std.algorithm;
 import std.math;
-import std.c.stdlib;
+import core.stdc.stdlib;
 import std.regex : match, regex, ctRegex;
 import std.exception;
 import std.range;
@@ -169,7 +169,7 @@ SegSite_t[] readSegSites(string filename, bool directedEmissions, size_t[] indic
   else {
     M = indices.length;
   }
-  int obsMap[string];
+  int[string] obsMap;
   auto allele_order = canonicalAlleleOrder(M);
   auto index = 1; // index=0 indicates missing data 
   foreach(allele; allele_order) {

@@ -20,7 +20,7 @@
 import std.algorithm;
 import std.math;
 import std.stdio;
-import std.c.stdlib;
+import core.stdc.stdlib;
 
 T SIGN(T)(T a, T b) {
   return b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a);

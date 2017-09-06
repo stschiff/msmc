@@ -29,7 +29,7 @@ import std.file;
 import std.typecons;
 import std.regex;
 import std.exception;
-import std.c.stdlib;
+import core.stdc.stdlib;
 import std.range;
 import model.data;
 import model.msmc_model;
@@ -62,8 +62,9 @@ size_t nrTimeSegments;
 size_t[] indices;
 string logFileName, loopFileName, finalFileName;
 
+immutable versionString = "1.0.1";
 
-auto helpString = "This is MSMC Version 1.0.0. Usage: msmc [options] <datafiles>
+auto helpString = format("This is MSMC Version %s. Usage: msmc [options] <datafiles>
   Options:
     -i, --maxIterations=<size_t> : number of EM-iterations [default=20]
     -o, --outFilePrefix=<string> : file prefix to use for all output files
@@ -76,7 +77,7 @@ auto helpString = "This is MSMC Version 1.0.0. Usage: msmc [options] <datafiles>
     -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
     -I, --indices: indices (comma-separated) of alleles in the data file to run over
     -s, --skipAmbiguous: skip sites with ambiguous phasing. Recommended for gene flow analysis
-    -h, --help: show this message";
+    -h, --help: show this message", versionString);
 
 void main(string[] args) {
   try {
@@ -191,6 +192,7 @@ void parseCommandLine(string[] args) {
 }
 
 void printGlobalParams() {
+  logInfo(format("Version:             %s\n", versionString));
   logInfo(format("input files:         %s\n", inputFileNames));
   logInfo(format("maxIterations:       %s\n", maxIterations));
   logInfo(format("mutationRate:        %s\n", mutationRate));
