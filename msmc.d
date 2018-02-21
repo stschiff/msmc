@@ -81,6 +81,9 @@ auto helpString = format("This is MSMC Version %s. Usage: msmc [options] <datafi
     -R, --fixedRecombination : keep recombination rate fixed [recommended, but not set by default]
     -I, --indices: indices (comma-separated) of alleles in the data file to run over
     -s, --skipAmbiguous: skip sites with ambiguous phasing. Recommended for gene flow analysis
+    --unboundedCrossCoal: do not bound the relative cross coalescence rate to be <=1.
+    --loBoundLambda: Give a lower bound for lambda rates (default=0)
+    --hiBoundLambda: Give an upper bound for lambda rates (default=infinity)
     -h, --help: show this message", versionString);
 
 void main(string[] args) {
