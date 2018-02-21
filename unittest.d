@@ -18,27 +18,27 @@
  */
  
 import std.stdio;
-import model.emission_rate;
-import model.transition_rate;
-import model.gsl_matrix_vector;
-import model.data;
-import model.time_intervals;
-import model.msmc_hmm;
-import model.propagation_core_naiveImpl;
-import model.propagation_core;
-import model.rate_integrator;
-import model.coalescence_rate;
-import model.triple_index_marginal;
-import model.triple_index;
-import model.msmc_model;
-import model.propagation_core_fastImpl;
-import model.stateVec;
-import model.stateVecAllocator;
-import powell;
-import brent;
-import maximization_step;
-import expectation_step;
-import branchlength;
+// import model.emission_rate;
+// import model.transition_rate;
+// import model.gsl_matrix_vector;
+// import model.data;
+// import model.time_intervals;
+// // import model.msmc_hmm;
+// import model.propagation_core_naiveImpl;
+// import model.propagation_core;
+// import model.rate_integrator;
+// import model.coalescence_rate;
+// import model.triple_index_marginal;
+// import model.triple_index;
+// import model.msmc_model;
+// import model.propagation_core_fastImpl;
+// import model.stateVec;
+// import model.stateVecAllocator;
+// import powell;
+// import brent;
+// import maximization_step;
+// import expectation_step;
+// import branchlength;
 
 void main() {
   writeln("all tests processed");

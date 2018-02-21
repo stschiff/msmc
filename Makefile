@@ -11,9 +11,6 @@ build/maximize : model/*.d powell.d brent.d maximization_step.d logger.d maximiz
 build/test/msmc : model/*.d powell.d brent.d maximization_step.d expectation_step.d msmc.d branchlength.d logger.d
 	dmd -O ${GSL} -odbuild/test -ofbuild/test/msmc $^
 
-build/test : model/*.d test.d
-	dmd ${GSL} -odbuild -ofbuild/test $^
-
 build/decode : model/*.d decode.d branchlength.d
 	dmd ${GSL} -odbuild -ofbuild/decode $^
 
@@ -29,7 +26,7 @@ testcoverage : model/*.d unittest.d powell.d brent.d maximization_step.d expecta
 	mv *.lst code_coverage/
 
 unittest : model/*.d unittest.d powell.d brent.d maximization_step.d expectation_step.d logger.d branchlength.d
-	dmd -unittest ${GSL} -odbuild -ofbuild/unittest $^
+	dmd -debug -unittest ${GSL} -odbuild -ofbuild/unittest $^
 	build/unittest
 
 clean :

@@ -52,6 +52,10 @@ auto memory = false;
 auto naiveImplementation = false;
 auto fixedPopSize = false;
 auto fixedRecombination = false;
+auto unboundedCrossCoal = false;
+double loBoundLambda = 0.0;
+double hiBoundLambda = double.infinity;
+
 bool directedEmissions = false;
 bool skipAmbiguous = false;
 string[] inputFileNames, treeFileNames;
@@ -152,19 +156,27 @@ void parseCommandLine(string[] args) {
       "fixedPopSize", &fixedPopSize,
       "fixedRecombination|R", &fixedRecombination,
       "initialLambdaVec", &handleLambdaVecString,
-      "treeFileNames", &handleTreeFileNames
+      "treeFileNames", &handleTreeFileNames,
+      "unboundedCrossCoal", &unboundedCrossCoal,
+      "loBoundLambda", &loBoundLambda,
+      "hiBoundLambda", &hiBoundLambda  
   );
   if(nrThreads)
     std.parallelism.defaultPoolThreads(nrThreads);
   enforce(args.length > 1, "need at least one input file");
   enforce(hmmStrideWidth > 0, "hmmStrideWidth must be positive");
   inputFileNames = args[1 .. $];
+  
   if(indices.length == 0)
     inferDefaultIndices();
+  
   if(subpopLabels.length == 0)
     inferDefaultSubpopLabels(indices.length);
+  
   enforce(indices.length == subpopLabels.length, "nr haplotypes in subpopLabels and indices must be equal");
+  
   inputData = readDataFromFiles(inputFileNames, directedEmissions, indices, skipAmbiguous);
+  
   if(isNaN(mutationRate)) {
     stderr.write("estimating scaled mutation rate: ");
     mutationRate = getTheta(inputData, indices.length) / 2.0;
@@ -172,16 +184,23 @@ void parseCommandLine(string[] args) {
   }
   recombinationRate = mutationRate * rhoOverMu;
   nrTimeSegments = timeSegmentPattern.reduce!"a+b"();
+  
   if(nrTtotSegments == 0)
     nrTtotSegments = nrTimeSegments;
+  
   auto nrSubpops = MarginalTripleIndex.computeNrSubpops(subpopLabels);
+  
   auto nrMarginals = nrTimeSegments * nrSubpops * (nrSubpops + 1) / 2;
+  
   if(lambdaVec.length > 0) {
     // this is necessary because we read in a scaled lambdaVec.
     lambdaVec[] *= mutationRate;
     enforce(lambdaVec.length == nrMarginals, "initialLambdaVec must have correct length");
   }
   enforce(treeFileNames.length == 0 || treeFileNames.length == inputFileNames.length);
+  
+  enforce(hiBoundLambda > loBoundLambda,
+    "higher bound of lambda needs to be higher than the lower bounda");
   
   logFileName = outFilePrefix ~ ".log";
   loopFileName = outFilePrefix ~ ".loop.txt";
@@ -207,7 +226,10 @@ void printGlobalParams() {
   logInfo(format("hmmStrideWidth:      %s\n", hmmStrideWidth));
   logInfo(format("fixedPopSize:        %s\n", fixedPopSize));
   logInfo(format("fixedRecombination:  %s\n", fixedRecombination));
+  logInfo(format("unboundedCrossCoal:  %s\n", unboundedCrossCoal));
   logInfo(format("initialLambdaVec:    %s\n", lambdaVec));
+  logInfo(format("loBoundLambda:       %s\n", loBoundLambda));
+  logInfo(format("hiBoundLambda:       %s\n", hiBoundLambda));
   logInfo(format("directedEmissions:   %s\n", directedEmissions));
   logInfo(format("skipAmbiguous:       %s\n", skipAmbiguous));
   logInfo(format("indices:             %s\n", indices));
@@ -232,11 +254,11 @@ void inferDefaultSubpopLabels(size_t nrHaplotypes) {
 void run() {
   MSMCmodel params;
   if(lambdaVec.length > 0)
-    params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, nrTimeSegments, nrTtotSegments, 
-                           directedEmissions);
+    params = new MSMCmodel(mutationRate, recombinationRate, subpopLabels, lambdaVec, 
+        nrTimeSegments, nrTtotSegments, directedEmissions);
   else
-    params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, nrTimeSegments, nrTtotSegments,
-                                         directedEmissions);
+    params = MSMCmodel.withTrivialLambda(mutationRate, recombinationRate, subpopLabels, 
+        nrTimeSegments, nrTtotSegments, directedEmissions);
   
   auto nrFiles = inputData.length;
   if(params.nrHaplotypes > 2) {
@@ -271,7 +293,8 @@ void run() {
       auto filename = outFilePrefix ~ format(".loop_%s.expectationMatrix.txt", iteration);
       printMatrix(filename, eVec, eMat);
     }
-    auto newParams = getMaximization(eVec, eMat, params, timeSegmentPattern, fixedPopSize, fixedRecombination);
+    auto newParams = getMaximization(eVec, eMat, params, timeSegmentPattern, fixedPopSize, 
+        fixedRecombination, !unboundedCrossCoal, loBoundLambda, hiBoundLambda);
     params = newParams;
   }
   
