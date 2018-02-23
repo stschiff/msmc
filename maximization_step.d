@@ -136,8 +136,16 @@ class MinFunc {
           auto lambda1 = lambdaVec[marginalIndex1];
           auto lambda2 = lambdaVec[marginalIndex2];
           auto lambda12 = lambdaVec[lIndex];
-          if(lambda12 >= 0.5 * (lambda1 + lambda2))
-            lambda12 = 0.4999999999 * (lambda1 + lambda2);
+          if(boundCrossCoal) {
+            if(lambda12 >= 0.5 * (lambda1 + lambda2))
+              lambda12 = 0.4999999999 * (lambda1 + lambda2);
+          }
+          else {
+            if(lambda12 < loBoundLambda)
+              lambda12 = loBoundLambda + 0.000000001;
+            if(lambda12 > hiBoundLambda)
+              lambda12 = hiBoundLambda - 0.000000001;
+          }
           ret ~= toScaledCrossLambda(lambda12, lambda1, lambda2);
         }
       }
