@@ -66,7 +66,7 @@ size_t nrTimeSegments;
 size_t[] indices;
 string logFileName, loopFileName, finalFileName;
 
-immutable versionString = "1.0.1";
+immutable versionString = "1.1.0";
 
 auto helpString = format("This is MSMC Version %s. Usage: msmc [options] <datafiles>
   Options:
