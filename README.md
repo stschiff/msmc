@@ -23,4 +23,4 @@ For generating the input files using my scripts, you need Python 3.4. I am sorry
 
 A general guide can be found [here](https://github.com/stschiff/msmc/blob/master/guide.md)
 
-To get help, please join the [mailing list](https://groups.google.com/d/forum/msmc-popgen)
+To get help, please submit an [issue](https://github.com/stschiff/msmc/issues), or [email me directly](https://www.eva.mpg.de/archaeogenetics/staff/stephan-schiffels/)
