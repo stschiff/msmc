@@ -74,7 +74,7 @@ class TripleIndex {
     out(index) {
       assert(index < nrStates());
     }
-  body{
+  do {
     return tripleToIndexMap[triple.time][triple.ind1][triple.ind2];
   }
   
@@ -86,7 +86,7 @@ class TripleIndex {
       assert(triple.ind1 < triple.ind2);
       assert(triple.time < nrTimeIntervals);
     }
-  body {
+  do {
     return indexToTripleMap[index];
   }
 }

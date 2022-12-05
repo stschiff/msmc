@@ -119,7 +119,7 @@ class MSMC_hmm {
     foreach(i; 0 .. L)
       assert(scalingFactors[i] > 0);
   }
-  body {
+  do {
     enforce(!have_run_forward);
     propagationCore.initialState(forwardStates[0]);
     scalingFactors[0] = forwardStates[0].norm;
@@ -185,9 +185,9 @@ class MSMC_hmm {
       sum += reduce!"a+b"(expecMat[i]);
       sum += expecVec[i];
     }
-    assert(approxEqual(sum, 1.0, 1.0e-8, 0.0), text(sum));
+    assert(isClose(sum, 1.0, 1.0e-8, 0.0), text(sum));
   }
-  body {    
+  do {    
     getForwardState(expectationForwardDummy, pos - 1);
     getBackwardState(expectationBackwardDummy, pos);
     auto site = getSegSite(pos);
@@ -200,7 +200,7 @@ class MSMC_hmm {
     assert(pos >= segsites[0].pos);
     assert(pos <= segsites[$ - 1].pos);
   }
-  body {
+  do {
     auto index = getRightIndexAtPos(pos);
     if(pos == segsites[index].pos) {
       forwardStates[index].copy_into(s);
@@ -216,7 +216,7 @@ class MSMC_hmm {
     assert(pos >= segsites[0].pos);
     assert(pos <= segsites[$ - 1].pos);
   }
-  body {
+  do {
     auto index = getRightIndexAtPos(pos);
     auto site = getSegSite(pos);
     if(pos == segsites[index].pos) {
@@ -252,7 +252,7 @@ class MSMC_hmm {
       assert(segsites[result - 1].pos < pos);
     }
   }
-  body {
+  do {
     while(segsites[indexCache].pos < pos) {
       ++indexCache;
     }
@@ -270,7 +270,7 @@ class MSMC_hmm {
     assert(have_run_forward);
     assert(index < L);
   }
-  body {
+  do {
     if(index == L - 1) {
       assert(scalingFactors[L - 1] > 0, text(scalingFactors[L - 1]));
       propagationCore.setState(currentBackwardState, 1.0 / scalingFactors[L - 1], segsites[L - 1]);

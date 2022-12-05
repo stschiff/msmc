@@ -233,7 +233,7 @@ class PropagationCoreFast : PropagationCore {
   in {
     assert(to_segsite.pos == from_segsite.pos + 1);
   }
-  body {
+  do {
     to.setZero();
     
     foreach(aij; 0 .. msmc.nrStates) {
@@ -252,7 +252,7 @@ class PropagationCoreFast : PropagationCore {
   in {
     assert(to_segsite.pos == from_segsite.pos + 1);
   }
-  body {
+  do {
     from.setZero();
     
     foreach(bkl; 0 .. msmc.nrStates) {
@@ -273,7 +273,7 @@ class PropagationCoreFast : PropagationCore {
     assert(to_segsite.pos > from_segsite.pos);
     assert(to_segsite.obs[0] < 2);
   }
-  body {
+  do {
     auto dist = to_segsite.pos - from_segsite.pos;
     to.setZero();
     foreach(aij; 0 .. msmc.nrStates) {
@@ -306,7 +306,7 @@ class PropagationCoreFast : PropagationCore {
     assert(to_segsite.pos > from_segsite.pos);
     assert(to_segsite.obs[0] < 2);
   }
-  body {  
+  do {  
     auto dist = to_segsite.pos - from_segsite.pos;
     from.setZero();
     foreach(bkl; 0 .. msmc.nrStates) {

@@ -85,7 +85,7 @@ class MinFunc {
   out(x) {
     assert(x.length == nrParams);
   }
-  body {
+  do {
     auto x = getXfromLambdaVec(initialParams.lambdaVec);
     if(!fixedRecombination)
       x ~= toScaledRecombination(initialParams.recombinationRate);
@@ -108,7 +108,7 @@ class MinFunc {
     else
       assert(x.length == timeSegmentPattern.length * nrSubpopPairs);
   }
-  body {
+  do {
     double[] ret;
     size_t count = 0;
     foreach(nrIntervalsInSegment; timeSegmentPattern) {
@@ -204,7 +204,7 @@ class MinFunc {
   in {
     assert(x.length == nrParams);
   }
-  body {
+  do {
     auto lambdaVec = initialParams.lambdaVec.dup;
     auto timeIndex = 0U;
     auto valuesPerTime = nrSubpopPairs - initialParams.nrSubpopulations;
@@ -240,7 +240,7 @@ class MinFunc {
   in {
     assert(x.length == nrParams);
   }
-  body {
+  do {
     auto lambdaVec = initialParams.lambdaVec.dup;
     auto timeIndex = 0U;
     foreach(segmentIndex, nrIntervalsInSegment; timeSegmentPattern) {
@@ -279,7 +279,7 @@ class MinFunc {
   in {
     assert(!fixedRecombination);
   }
-  body {
+  do {
     return fromScaledRecombination(x[$ - 1]);
   }
 

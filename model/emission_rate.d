@@ -125,7 +125,7 @@ out(res) {
   assert(res > 0.0);
   assert(res < 1.0);
 }
-body {
+do {
   return 2.0 / freq * (1.0 / binomial(m, freq));
 }
 

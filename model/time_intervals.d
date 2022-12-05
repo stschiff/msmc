@@ -119,7 +119,7 @@ class TimeIntervals {
     out(result) {
       assert(result < nrIntervals());
     }
-  body {
+  do {
     auto index = countUntil!"a>b"(boundaries[1 .. $], t);
     if(index < 0)
       index = nrIntervals - 1;
@@ -130,7 +130,7 @@ class TimeIntervals {
     in {
       assert(t >= 0.0);
     }
-  body {
+  do {
     auto index = findIntervalForTime(t);
     if(t  - boundaries[index] < boundaries[index + 1] - t)
       return index;
@@ -146,7 +146,7 @@ class TimeIntervals {
     out(result) {
       assert(result > leftBoundary(i) && result < rightBoundary(i));
     }
-  body {
+  do {
     double time;
     if(lambda < 0.001) {
       return meanTimeForLowRate(i, lambda);

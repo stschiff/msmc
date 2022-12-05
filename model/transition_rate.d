@@ -115,7 +115,7 @@ class TransitionRate {
       assert(t2 >= timeIntervals.leftBoundary(a) && t2 <= timeIntervals.rightBoundary(a));
       assert(t1 < t2 && t2 <= timeIntervals.meanTimeWithLambda(b, coal.getTotalMarginalLambda(b)));
     }
-  body {
+  do {
     auto meanTime = timeIntervals.meanTimeWithLambda(b, coal.getTotalMarginalLambda(b));
     double sum = 0.0;
     foreach(g; 0 .. a) {
@@ -152,7 +152,7 @@ class TransitionRate {
       assert(t2 >= timeIntervals.leftBoundary(a) && t2 <= timeIntervals.rightBoundary(a));
       assert(t1 < t2 && t1 >= timeIntervals.meanTimeWithLambda(b, coal.getTotalMarginalLambda(b)));
     }
-  body {
+  do {
     auto meanTime = timeIntervals.meanTimeWithLambda(b, coal.getTotalMarginalLambda(b));
     double integ = coalIntegrator.integrateTotalMarginalLambda(meanTime, timeIntervals.leftBoundary(a), b, a) / 
                    coal.getTotalMarginalLambda(a) *
@@ -191,7 +191,7 @@ class TransitionRate {
     in {
       assert(aij < marginalIndex.nrStates && bkl < marginalIndex.nrStates);
     }
-  body {
+  do {
     auto au = marginalIndex.getMarginalIndexFromIndex(aij);
     auto bv = marginalIndex.getMarginalIndexFromIndex(bkl);
     double ret = transitionProbabilitiesQ2[au][bv];

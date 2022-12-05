@@ -122,7 +122,7 @@ class MarginalTripleIndex : TripleIndex {
       assert(triple.time < nrTimeIntervals &&
           triple.ind1 < nrIndividuals && triple.ind2 < nrIndividuals, text(triple));
     }
-  body {
+  do {
     auto subpop1 = cast()subpopLabels[triple.ind1];
     auto subpop2 = cast()subpopLabels[triple.ind2];
     return subpopulationTripleToMarginalIndexMap[triple.time][subpop1][subpop2];

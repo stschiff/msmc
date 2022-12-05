@@ -163,7 +163,7 @@ class PropagationCoreNaive : PropagationCore {
   in {
     assert(to_segsite.pos == from_segsite.pos + 1);
   }
-  body {
+  do {
     to.setZero();
     
     foreach(aij; 0 .. msmc.nrStates) {
@@ -193,7 +193,7 @@ class PropagationCoreNaive : PropagationCore {
   in {
     assert(to_segsite.pos == from_segsite.pos + 1);
   }
-  body {
+  do {
     foreach(bkl; 0 .. msmc.nrStates) {
       auto sum = 0.0;
       foreach(aij; 0 .. msmc.nrStates) {
@@ -220,7 +220,7 @@ class PropagationCoreNaive : PropagationCore {
     assert(to_segsite.pos > from_segsite.pos);
     assert(to_segsite.obs[0] < 2);
   }
-  body {
+  do {
     auto dist = to_segsite.pos - from_segsite.pos;
     foreach(aij; 0 .. msmc.nrStates) {
       if(to_segsite.obs[0] == 0) {
@@ -249,7 +249,7 @@ class PropagationCoreNaive : PropagationCore {
     assert(to_segsite.pos > from_segsite.pos);
     assert(to_segsite.obs[0] < 2);
   }
-  body {  
+  do {  
     auto dist = to_segsite.pos - from_segsite.pos;
     foreach(bkl; 0 .. msmc.nrStates) {
       if(to_segsite.obs[0] == 0) {
