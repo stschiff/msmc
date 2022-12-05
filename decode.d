@@ -20,7 +20,7 @@
 import std.stdio;
 import std.getopt;
 import std.exception;
-import std.c.stdlib;
+import core.stdc.stdlib;
 import std.algorithm;
 import std.parallelism;
 import std.range;

@@ -1,0 +1,1 @@
+v1.1.1: Fixed compiler deprecation and error messages. Also cleaned up the Makefile.

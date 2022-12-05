@@ -2,6 +2,8 @@
 # GSL = /usr/lib/libgsl.a /usr/lib/libgslcblas.a
 GSL=/usr/local/lib/libgsl.a /usr/local/lib/libgslcblas.a
 
+all: build/msmc build/decode
+
 build/msmc : model/*.d powell.d brent.d maximization_step.d expectation_step.d msmc.d branchlength.d logger.d
 	dmd -debug -O ${GSL} -odbuild -ofbuild/msmc $^
 
@@ -13,9 +15,6 @@ build/test/msmc : model/*.d powell.d brent.d maximization_step.d expectation_ste
 
 build/decode : model/*.d decode.d branchlength.d
 	dmd ${GSL} -odbuild -ofbuild/decode $^
-
-build/decodeStates : model/*.d decodeStates.d branchlength.d
-	dmd ${GSL} -odbuild -ofbuild/decodeStates $^
 
 .PHONY : unittest testcoverage clean
 
