@@ -40,7 +40,7 @@ For running on only one individual (two haplotypes), you should leave out the fl
 More command line options are printed when simply typing `msmc`.
 
 The program outputs three files:
-* Af file called something.log: This file contains the same logging information that is printed out while it runs.
+* A file called something.log: This file contains the same logging information that is printed out while it runs.
 * A file called something.loop.txt. This file contains a table with parameter estimates after each iteration step. The columns of the table are: the recombination rate (fixed in the above example), the log-likelihood, and a comma-separated list of coalescence rates.
 * A file called something.final.txt. This file contains a table with the final parameter estimates.
 
